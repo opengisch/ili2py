@@ -1,9 +1,11 @@
-from dataclasses import field, make_dataclass
+from dataclasses import dataclass, field, make_dataclass
 from typing import List, Optional
 
 from ili2py.interfaces.interlis.interlis_23 import TRANSFER
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data import ModelData
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data import (
+    ModelDataType,
+)
 
 
 class DataClassGenerator:
@@ -11,7 +13,7 @@ class DataClassGenerator:
     def __init__(self, meta_model: ImdTransfer):
         self.meta_model = meta_model
 
-    def find_model_by_name(self, model_name: str) -> ModelData:
+    def find_model_by_name(self, model_name: str) -> ModelDataType:
         for model_data in self.meta_model.datasection.ModelData:
             if model_name == model_data.Model.Name:
                 return model_data
@@ -137,6 +139,7 @@ class DataClassGenerator:
                 )
             )
 
+        @dataclass
         class XtfTransfer(TRANSFER):
             DATASECTION: make_dataclass("DATASECTION", fields=topic_fields)
 

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ili2django"
+version = "0.1.0"
+description = "Generate Django models and XTF metadata bridges from INTERLIS IMD via ili2py"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+  { name = "ili2django contributors" }
+]
+license = { text = "AGPL-3.0-only" }
+keywords = ["interlis", "imd", "django", "codegen"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Code Generators",
+]
+dependencies = [
+  "click>=8.1.0",
+  "ili2py",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[project.scripts]
+ili2django = "ili2django.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,6 @@
+git+https://github.com/opengisch/django.git@arcarcarc#egg=Django
+git+https://github.com/opengisch/ili2py.git#egg=ili2py
+./deps/ili2django
+django-oapif
+django-unfold
+psycopg[binary]>=3.2
