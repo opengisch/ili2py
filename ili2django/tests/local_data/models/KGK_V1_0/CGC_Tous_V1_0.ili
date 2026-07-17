@@ -1,0 +1,19 @@
+INTERLIS 2.4;
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!
+!! Datenmodell der amtlichen Vermessung "Bund" (DMAV)
+!! mit KGK Erweiterung
+!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+MODEL CGC_Tous_V1_0 (de)
+  AT "https://models.geo.admin.ch/V_D/"
+  VERSION "2026-07-14"
+  TRANSLATION OF KGK_Alles_V1_0 ["2026-07-14"]
+  =
+  IMPORTS DMAVTYM_Tous_V1_1;
+  IMPORTS CGC_CouvertureDuSol_V1_0;
+  IMPORTS CGC_Immeubles_V1_0;
+  IMPORTS CGC_ObjetsDivers_V1_0;
+END CGC_Tous_V1_0.
