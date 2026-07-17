@@ -182,6 +182,18 @@ class Ili2PyBridge:
         self._imd_models: dict[str, dict[str, str | None]] = {}
         self._imd_translations: dict[str, dict[str, str]] = {}
         self._raw_transfer_xml: str | None = None
+        self._last_import_diagnostics: dict[str, str | int | None] = {
+            "mode": None,
+            "reason": None,
+            "baskets_seen": 0,
+            "records_seen": 0,
+            "records_imported": 0,
+        }
+
+    def get_last_import_diagnostics(self) -> dict[str, str | int | None]:
+        """Return diagnostics for the most recent `import_xtf` call."""
+
+        return dict(self._last_import_diagnostics)
 
     def read_imd(
         self,
@@ -240,31 +252,48 @@ class Ili2PyBridge:
         if not path.exists():
             raise FileNotFoundError(f"XTF file not found: {xtf_path}")
 
+        self._last_import_diagnostics = {
+            "mode": "started",
+            "reason": None,
+            "baskets_seen": 0,
+            "records_seen": 0,
+            "records_imported": 0,
+        }
+
         router = self._router_adapter(django_router)
         schema = self._build_schema(router.iter_models())
         parser = XmlParser(config=ParserConfig(fail_on_unknown_properties=False))
         try:
             transfer = parser.parse(str(path), schema.transfer_type)
             self._raw_transfer_xml = None
+            self._last_import_diagnostics["mode"] = "structured"
         except Exception:
             # Preserve transfer-level payload as-is for interoperable round-trip
             # when strict runtime schema parsing does not yet cover source XTF.
             parsed = self._xtf_core.parse_transfer(str(path))
             self._raw_transfer_xml = self._xtf_core.render_transfer(parsed)
+            self._last_import_diagnostics["mode"] = "raw_transfer_passthrough"
+            self._last_import_diagnostics["reason"] = (
+                "runtime schema parse failed; transfer preserved without object upsert"
+            )
             return {}
 
         pending_refs: list[tuple[type[Any], str, str, type[Any], str]] = []
         imported_counts: dict[str, int] = {}
         datasection = getattr(transfer, "datasection", None)
         if datasection is None:
+            self._last_import_diagnostics["mode"] = "empty_datasection"
+            self._last_import_diagnostics["reason"] = "no DATASECTION found"
             return imported_counts
 
         for basket in getattr(datasection, "baskets", []):
+            self._last_import_diagnostics["baskets_seen"] = int(self._last_import_diagnostics["baskets_seen"] or 0) + 1
             topic = schema.topic_by_type.get(type(basket))
             if topic is None:
                 continue
             for model_spec in topic.model_specs:
                 for record in getattr(basket, model_spec.record_attr, []):
+                    self._last_import_diagnostics["records_seen"] = int(self._last_import_diagnostics["records_seen"] or 0) + 1
                     tid = getattr(record, "tid", None)
                     if not tid:
                         continue
@@ -290,11 +319,22 @@ class Ili2PyBridge:
                     router.upsert(model_spec.model, tid, scalar_values)
                     class_ref = f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
                     imported_counts[class_ref] = imported_counts.get(class_ref, 0) + 1
+                    self._last_import_diagnostics["records_imported"] = int(
+                        self._last_import_diagnostics["records_imported"] or 0
+                    ) + 1
 
         for model, source_tid, field_name, target_model, target_tid in pending_refs:
             if target_model is None:
                 continue
             router.set_reference(model, source_tid, field_name, target_model, target_tid)
+
+        if not imported_counts:
+            self._last_import_diagnostics["mode"] = "no_matching_records"
+            self._last_import_diagnostics["reason"] = (
+                "no records matched generated model/topic/class metadata"
+            )
+        else:
+            self._last_import_diagnostics["mode"] = "structured"
 
         return imported_counts
 

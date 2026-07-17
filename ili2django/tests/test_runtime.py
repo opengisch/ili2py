@@ -6,6 +6,7 @@ import subprocess
 import sys
 import textwrap
 from types import SimpleNamespace
+from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
 from ili2django.runtime import Ili2PyBridge
@@ -142,6 +143,9 @@ def test_bridge_exports_and_imports_supported_subset_round_trip(tmp_path):
         "DemoModel.Main.Parent": 1,
         "DemoModel.Main.Child": 1,
     }
+    diagnostics = bridge.get_last_import_diagnostics()
+    assert diagnostics["mode"] == "structured"
+    assert diagnostics["records_imported"] == 2
 
     assert router.rows[Parent]["p1"]["from_field"] == "north"
     assert router.rows[Parent]["p1"]["number"] == 7
@@ -201,6 +205,19 @@ def test_bridge_extracts_multilingual_translations_from_secondary_imd():
     assert bridge.get_translation_label("DemoModel.Main.Child", "de") == "Kind"
     assert bridge.get_translation_label("DemoModel.Main.Child", "fr") is None
     assert bridge.get_export_label("DemoModel.Main.Parent", "Parent") == "Parent"
+
+
+def test_bridge_reports_raw_passthrough_diagnostics_on_schema_parse_fallback(tmp_path):
+    bridge = Ili2PyBridge()
+    xtf_path = tmp_path / "empty.xtf"
+    xtf_path.write_text("<TRANSFER></TRANSFER>", encoding="utf-8")
+
+    with patch("ili2django.runtime.XmlParser.parse", side_effect=RuntimeError("boom")):
+        imported_counts = bridge.import_xtf(str(xtf_path), django_router=MemoryRouter([]))
+
+    assert imported_counts == {}
+    diagnostics = bridge.get_last_import_diagnostics()
+    assert diagnostics["mode"] == "raw_transfer_passthrough"
 
 
 def _normalized_xml_structure(xml_path: Path) -> tuple[object, ...]:
