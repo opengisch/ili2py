@@ -151,3 +151,70 @@ class XtfCore:
 
 - Keep transition shims for at least one minor release of `ili2django`.
 - Prefer explicit semantic version pinning between packages during migration.
+
+## Model Projection Export Semantics (Canonical Spec)
+
+This section defines export behavior for model-scoped projection and is the
+authoritative reference for future export work.
+
+### Goal
+
+Support exporting by requested INTERLIS model scope, for example:
+
+- `--models DMAVTYM_Alles_V1_1`
+
+When projected to a base model scope, data stored in profile-specific schemas
+(for example KGK) must be exportable in base-model form.
+
+### CLI Contract
+
+- `--models` accepts one or more INTERLIS model names.
+- Export includes only topics/classes that belong to the requested model scope.
+- Omitted `--models` means current behavior (`all discovered models`).
+
+### Projection Rules
+
+Given a requested base model `M_base`:
+
+1. Class projection
+- If source row type is already in `M_base`, export directly.
+- If source row type extends/refines a class in `M_base`, export as the mapped
+  base class record.
+- If no base mapping exists, row is excluded unless `--strict-projection` is set
+  (then fail).
+
+2. Attribute projection
+- Include only attributes defined on the projected base class and inherited base
+  ancestry relevant to `M_base`.
+- Drop profile-only attributes not present in projected base class.
+
+3. Value-list (enum) projection
+- If source enum value is in base enum domain, export unchanged.
+- If source enum value is profile-specific refinement, map to configured base
+  parent value.
+- If no mapping exists:
+  - default mode: fail with clear error listing class/attribute/value.
+  - optional future mode `--projection-on-missing-enum keep|drop|error` may be
+    added later; initial implementation uses `error`.
+
+4. Reference projection
+- Reference targets must project consistently into the same requested model
+  scope.
+- If target cannot be projected, fail in strict mode; otherwise skip source row
+  with diagnostic.
+
+### Mapping Source of Truth
+
+- Projection mappings are metadata-driven, not hardcoded per dataset.
+- Primary source: IMD model metadata (extension/redefinition relationships).
+- Supplementary mapping (when IMD is insufficient) should live in versioned
+  config files under `ili2django/docs/` or runtime mapping modules, referenced
+  by tests.
+
+### Required Tests
+
+1. `--models <base>` exports only base baskets/classes.
+2. KGK-stored rows project to DMAV base class records where mapping exists.
+3. Enum refinement values map to base parent values as configured.
+4. Missing enum mapping fails with actionable diagnostics.
+5. Round-trip fixture for at least one DMAV/KGK overlap domain.
