@@ -64,6 +64,7 @@ def import_xtf_admin_view(request: HttpRequest) -> HttpResponse:
         except Exception as exc:
             messages.error(request, f"XTF import failed: {exc}")
         finally:
+            
             for temp_path in (xtf_temp, imd_temp):
                 if temp_path:
                     try:

@@ -313,8 +313,12 @@ def test_collect_enum_refs_and_render_models_include_value_lists() -> None:
     )
 
     assert "class StatusValue(models.Model):" in content
+    assert "from django.utils.translation import gettext_lazy as _" in content
+    assert "from ili2django.choices import IliChoice, IliChoices" in content
     assert "__ili2django_values__ = ['active', 'inactive']" in content
     assert "__ili2django_tree__ = False" in content
+    assert "class StatusValueChoices(IliChoices):" in content
+    assert "ACTIVE = IliChoice('active', _('active'), order=0)" in content
     assert "def __str__(self) -> str:" in content
     assert "models.ForeignKey('ili_demo.StatusValue'" in content
 
