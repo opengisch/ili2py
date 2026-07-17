@@ -228,7 +228,7 @@ class Ili2PyBridge:
 
         return base_label
 
-    def import_xtf(self, xtf_path: str, *, django_router: Any | None = None) -> None:
+    def import_xtf(self, xtf_path: str, *, django_router: Any | None = None) -> dict[str, int]:
         """Import XTF into Django domain objects.
 
         Import/export use xsdata for XML parsing/serialization and build the XTF
@@ -251,12 +251,13 @@ class Ili2PyBridge:
             # when strict runtime schema parsing does not yet cover source XTF.
             parsed = self._xtf_core.parse_transfer(str(path))
             self._raw_transfer_xml = self._xtf_core.render_transfer(parsed)
-            return
+            return {}
 
         pending_refs: list[tuple[type[Any], str, str, type[Any], str]] = []
+        imported_counts: dict[str, int] = {}
         datasection = getattr(transfer, "datasection", None)
         if datasection is None:
-            return
+            return imported_counts
 
         for basket in getattr(datasection, "baskets", []):
             topic = schema.topic_by_type.get(type(basket))
@@ -287,11 +288,15 @@ class Ili2PyBridge:
                             continue
                         scalar_values[field_spec.django_name] = raw_value
                     router.upsert(model_spec.model, tid, scalar_values)
+                    class_ref = f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
+                    imported_counts[class_ref] = imported_counts.get(class_ref, 0) + 1
 
         for model, source_tid, field_name, target_model, target_tid in pending_refs:
             if target_model is None:
                 continue
             router.set_reference(model, source_tid, field_name, target_model, target_tid)
+
+        return imported_counts
 
     def export_xtf(self, xtf_path: str, *, queryset_provider: Any | None = None) -> None:
         """Export Django domain objects into XTF.

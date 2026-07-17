@@ -136,7 +136,12 @@ def test_bridge_exports_and_imports_supported_subset_round_trip(tmp_path):
     assert "demo-basket" in xml
 
     router = MemoryRouter([Parent, Child])
-    bridge.import_xtf(str(xtf_path), django_router=router)
+    imported_counts = bridge.import_xtf(str(xtf_path), django_router=router)
+
+    assert imported_counts == {
+        "DemoModel.Main.Parent": 1,
+        "DemoModel.Main.Child": 1,
+    }
 
     assert router.rows[Parent]["p1"]["from_field"] == "north"
     assert router.rows[Parent]["p1"]["number"] == 7
