@@ -121,6 +121,7 @@ def generated_apps(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, list
             library_name="interface",
             app_prefix="ili",
             srid=2056,
+            bootstrap=True,
         )
         assert result.created_files
 
@@ -163,6 +164,29 @@ def test_generated_files_exist(generated_apps: tuple[Path, list[str]]) -> None:
         assert (app_path / "models_generated.py").exists()
         assert (app_path / "models.py").exists()
         assert (app_path / "apps.py").exists()
+
+
+def test_generate_models_defaults_to_generated_only(tmp_path: Path) -> None:
+    imd_path = Path(__file__).parent / "local_data" / "models" / "DMAVTYM_Alles_V1_0" / "DMAVTYM_Alles_V1_0.imd"
+    output_root = tmp_path / "generated_only"
+
+    result = generate_django_models(
+        imd_path=str(imd_path),
+        output_root=str(output_root),
+        library_name="interface",
+        app_prefix="ili",
+        srid=2056,
+    )
+
+    assert result.created_files
+    assert all(path.name == "models_generated.py" for path in result.created_files)
+
+    for generated_file in result.created_files:
+        app_dir = generated_file.parent
+        assert generated_file.exists()
+        assert not (app_dir / "apps.py").exists()
+        assert not (app_dir / "models.py").exists()
+        assert not (app_dir / "__init__.py").exists()
 
 
 def test_generated_models_load_and_carry_metadata(generated_apps: tuple[Path, list[str]]) -> None:

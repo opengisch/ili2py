@@ -575,6 +575,7 @@ def generate_django_models(
     library_name: str,
     app_prefix: str,
     srid: int = 2056,
+    bootstrap: bool = False,
 ) -> GenerationResult:
     """Generate Django model modules from an IMD file."""
 
@@ -612,21 +613,6 @@ def generate_django_models(
             classes.extend(module.classes)
         class_model_names = _build_model_name_map(classes)
 
-        (app_dir / "apps.py").write_text(
-            "\n".join(
-                [
-                    "from django.apps import AppConfig",
-                    "",
-                    f"class {_pascal(app_label)}Config(AppConfig):",
-                    f"    name = '{app_label}'",
-                    f"    label = '{app_label}'",
-                    "",
-                ]
-            ),
-            encoding="utf-8",
-        )
-        created_files.append(app_dir / "apps.py")
-
         (app_dir / "models_generated.py").write_text(
             _render_models_py(
                 app_label=app_label,
@@ -640,13 +626,29 @@ def generate_django_models(
         )
         created_files.append(app_dir / "models_generated.py")
 
-        (app_dir / "models.py").write_text(
-            _render_init_py(),
-            encoding="utf-8",
-        )
-        created_files.append(app_dir / "models.py")
+        if bootstrap:
+            (app_dir / "apps.py").write_text(
+                "\n".join(
+                    [
+                        "from django.apps import AppConfig",
+                        "",
+                        f"class {_pascal(app_label)}Config(AppConfig):",
+                        f"    name = '{app_label}'",
+                        f"    label = '{app_label}'",
+                        "",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            created_files.append(app_dir / "apps.py")
 
-        (app_dir / "__init__.py").write_text("", encoding="utf-8")
-        created_files.append(app_dir / "__init__.py")
+            (app_dir / "models.py").write_text(
+                _render_init_py(),
+                encoding="utf-8",
+            )
+            created_files.append(app_dir / "models.py")
+
+            (app_dir / "__init__.py").write_text("", encoding="utf-8")
+            created_files.append(app_dir / "__init__.py")
 
     return GenerationResult(output_root=out, created_files=created_files)

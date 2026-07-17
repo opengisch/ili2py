@@ -35,8 +35,14 @@ def main() -> None:
     type=int,
     help="SRID used for generated GeoDjango geometry fields.",
 )
+@click.option(
+    "--bootstrap",
+    is_flag=True,
+    default=False,
+    help="Also generate boilerplate app files (apps.py, models.py, __init__.py).",
+)
 def generate_models(
-    imd: str, output: str, library_name: str, app_prefix: str, srid: int
+    imd: str, output: str, library_name: str, app_prefix: str, srid: int, bootstrap: bool
 ) -> None:
     result = generate_django_models(
         imd_path=imd,
@@ -44,6 +50,7 @@ def generate_models(
         library_name=library_name,
         app_prefix=app_prefix,
         srid=srid,
+        bootstrap=bootstrap,
     )
     click.echo(f"Generated {len(result.created_files)} files into {result.output_root}")
 
