@@ -48,14 +48,6 @@ def _pascal(value: str) -> str:
     words = [p for p in parts if p]
     return "".join(word[:1].upper() + word[1:] for word in words) or "Model"
 
-
-def _field_name(value: str) -> str:
-    name = _snake(value)
-    if keyword.iskeyword(name):
-        return f"{name}_field"
-    return name
-
-
 def _choice_member_name(code: str, used_names: set[str]) -> str:
     candidate = _snake(code).upper()
     if not candidate:
@@ -145,87 +137,6 @@ def _nullable(restrictions: dict) -> bool:
     return not bool(restrictions.get("mandatory", False))
 
 
-def _module_name_from_class_identifier(identifier: str) -> str | None:
-    parts = identifier.split(".")
-    if len(parts) < 2:
-        return None
-    return parts[-2]
-
-
-def _collect_enum_refs(
-    modules: list,
-    classes: list,
-    class_model_names: dict[str, str],
-) -> tuple[dict[tuple[str, str], _EnumRef], dict[str, _EnumRef]]:
-    """Collect enum definitions and resolution maps for global and local enums."""
-
-    used_model_names = set(class_model_names.values())
-    by_module_and_name: dict[tuple[str, str], _EnumRef] = {}
-    by_attribute_id: dict[str, _EnumRef] = {}
-
-    def unique_model_name(base: str) -> str:
-        candidate = f"{_pascal(base)}Value"
-        unique = candidate
-        counter = 2
-        while unique in used_model_names:
-            unique = f"{candidate}{counter}"
-            counter += 1
-        used_model_names.add(unique)
-        return unique
-
-    for module in modules:
-        for enumeration in module.enumerations:
-            by_module_and_name[(module.name, enumeration.name)] = _EnumRef(
-                model_name=unique_model_name(enumeration.name),
-                enum_identifier=enumeration.identifier,
-                enum_name=enumeration.name,
-                values=list(enumeration.values or []),
-                tree=bool(getattr(enumeration, "tree", False)),
-            )
-
-    for cls in classes:
-        for attribute in getattr(cls, "attributes", []):
-            local_enum = getattr(attribute, "enumeration", None)
-            if local_enum is None:
-                continue
-            enum_name = local_enum.name or f"{cls.name}{attribute.name}Enum"
-            by_attribute_id[attribute.identifier] = _EnumRef(
-                model_name=unique_model_name(enum_name),
-                enum_identifier=local_enum.identifier,
-                enum_name=enum_name,
-                values=list(local_enum.values or []),
-                tree=bool(getattr(local_enum, "tree", False)),
-            )
-
-    return by_module_and_name, by_attribute_id
-
-
-def _enum_target(
-    attribute,
-    owner_class,
-    global_enum_map: dict[tuple[str, str], _EnumRef],
-    local_enum_map: dict[str, _EnumRef],
-    app_label: str,
-) -> str | None:
-    local_enum = local_enum_map.get(attribute.identifier)
-    if local_enum:
-        return f"{app_label}.{local_enum.model_name}"
-
-    first_type = attribute.types[0] if attribute.types else None
-    if not first_type:
-        return None
-
-    module_name = _module_name_from_class_identifier(owner_class.identifier)
-    if not module_name:
-        return None
-
-    global_enum = global_enum_map.get((module_name, first_type))
-    if not global_enum:
-        return None
-
-    return f"{app_label}.{global_enum.model_name}"
-
-
 def _prefers_curved(attr_obj) -> bool:
     line_type = getattr(attr_obj, "line_type", None)
     return bool(line_type and getattr(line_type, "arcs", False))
@@ -255,7 +166,6 @@ def _field_expression(
     class_map: dict[str, _ClassRef],
     srid: int,
     enum_fk_target: str | None = None,
-    geometric_override: str | None = None,
 ) -> str:
     restrictions = attribute.type_restrictions or {}
     nullable = _nullable(restrictions)
@@ -268,17 +178,6 @@ def _field_expression(
         )
 
     if getattr(attribute, "geometric", False):
-        def _geom_constructor(field_name: str, fallback: str | None = None) -> str:
-            if fallback:
-                return f'getattr(models, "{field_name}", models.{fallback})'
-            return f"models.{field_name}"
-
-        if geometric_override:
-            if ":" in geometric_override:
-                field_name, fallback = geometric_override.split(":", 1)
-                return f"{_geom_constructor(field_name, fallback)}(srid={srid}, {null_kw})"
-            return f"{_geom_constructor(geometric_override)}(srid={srid}, {null_kw})"
-
         geom_type = None
         struct_class = getattr(attribute, "type_related_type_class", None)
         if struct_class and getattr(struct_class, "attributes", None):
@@ -340,7 +239,6 @@ def _field_expression(
 
     return f"models.TextField({null_kw})"
 
-
 def _render_models_py(
     app_label: str,
     modules: list,
@@ -349,111 +247,6 @@ def _render_models_py(
     class_map: dict[str, _ClassRef],
     srid: int,
 ) -> str:
-    global_enum_map, local_enum_map = _collect_enum_refs(
-        modules=modules,
-        classes=classes,
-        class_model_names=class_model_names,
-    )
-    enum_models = list(global_enum_map.values()) + list(local_enum_map.values())
-
-    def _promote_to_multi(kind: str) -> str:
-        if kind == "PointField":
-            return "MultiPointField"
-        if kind == "LineStringField":
-            return "MultiLineStringField"
-        if kind == "PolygonField":
-            return "MultiPolygonField"
-        if kind == "CompoundCurveField":
-            return "MultiCurveField"
-        if kind == "CurvePolygonField":
-            return "MultiSurfaceField"
-        return kind
-
-    def _geometry_kind_from_class(class_obj) -> str | None:
-        geometric_attrs = [
-            attr
-            for attr in getattr(class_obj, "attributes", [])
-            if getattr(attr, "geometric", False)
-        ]
-        if not geometric_attrs:
-            return None
-
-        preferred = [
-            attr
-            for attr in geometric_attrs
-            if str(getattr(attr, "name", "")).lower() in {"geometrie", "geometry", "geom"}
-        ]
-
-        for attr in preferred or geometric_attrs:
-            kind = _geom_type_from_flags(
-                attr,
-                prefer_curved=_prefers_curved(attr),
-            )
-            if kind:
-                return kind
-        return None
-
-    class_geometry_kind_by_name: dict[str, str | None] = {}
-    for class_obj in classes:
-        kind = _geometry_kind_from_class(class_obj)
-        if not kind:
-            continue
-        existing = class_geometry_kind_by_name.get(class_obj.name)
-        if existing and existing != kind:
-            class_geometry_kind_by_name[class_obj.name] = None
-        else:
-            class_geometry_kind_by_name[class_obj.name] = kind
-
-    curved_geometry_map: dict[str, str] = {
-        "circularstring": "CircularStringField:LineStringField",
-        "compoundcurve": "CompoundCurveField:MultiLineStringField",
-        "curvepolygon": "CurvePolygonField:PolygonField",
-        "multicurve": "MultiCurveField:MultiLineStringField",
-        "multisurface": "MultiSurfaceField:MultiPolygonField",
-    }
-
-    def _normalize_curved_type_token(type_name: str) -> str:
-        token = str(type_name).split(".")[-1].strip().lower().replace("_", "")
-        for suffix in ("zm", "z", "m"):
-            if token.endswith(suffix):
-                return token[: -len(suffix)]
-        return token
-
-    def _geometry_override_from_curved_types(attribute) -> str | None:
-        candidate_types = list(getattr(attribute, "types", []) or [])
-
-        struct_class = getattr(attribute, "type_related_type_class", None)
-        if struct_class and getattr(struct_class, "attributes", None):
-            struct_content = struct_class.attributes[0]
-            candidate_types.extend(getattr(struct_content, "types", []) or [])
-
-        for type_name in candidate_types:
-            token = _normalize_curved_type_token(type_name)
-            override = curved_geometry_map.get(token)
-            if override:
-                return override
-        return None
-
-    def _geometry_override_from_struct(attribute) -> str | None:
-        struct_class = getattr(attribute, "type_related_type_class", None)
-        if not struct_class or not getattr(struct_class, "attributes", None):
-            return None
-
-        # MultiValue attributes are represented by a HOP class with one
-        # struct_content attribute that references the actual base structure.
-        struct_content = struct_class.attributes[0]
-        if not getattr(struct_content, "types", None):
-            return None
-
-        base_structure_name = struct_content.types[0]
-        base_kind = class_geometry_kind_by_name.get(base_structure_name)
-        if not base_kind:
-            return None
-
-        if getattr(attribute, "geometric_multi", False):
-            return _promote_to_multi(base_kind)
-        return base_kind
-
     lines = [
         '"""Generated by ili2django. Do not edit manually."""',
         "",
@@ -515,18 +308,6 @@ def _render_models_py(
                     )
         lines.append("")
 
-    for cls in classes:
-        model_name = class_model_names.get(cls.identifier, _pascal(cls.name))
-        qname = f"{app_label}.{cls.name}"
-        lines.append(f"@interlis_model(oid='{cls.identifier}', qname='{qname}')")
-        lines.append(f"class {model_name}(models.Model):")
-
-        if getattr(cls, "oid", None):
-            lines.append(
-                "    tid = ili_field(models.CharField(max_length=255, unique=True), "
-                f"oid='{cls.oid.identifier}', qname='{qname}.tid')"
-            )
-
         if not cls.attributes:
             lines.append("    pass")
         else:
@@ -544,10 +325,6 @@ def _render_models_py(
                     class_map,
                     srid,
                     enum_fk_target=enum_fk_target,
-                    geometric_override=(
-                        _geometry_override_from_curved_types(attribute)
-                        or _geometry_override_from_struct(attribute)
-                    ),
                 )
                 field_qname = f"{qname}.{attribute.name}"
                 lines.append(

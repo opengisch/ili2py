@@ -29,31 +29,3 @@ def ili_field(field: Any, *, oid: str, qname: str | None = None, **meta: Any) ->
     payload.update(meta)
     setattr(field, "_ili2django", payload)
     return field
-
-
-def ensure_curve_field_aliases() -> None:
-    """Expose curve field names on GeoDjango models when they are missing.
-
-    Aliases map to the closest non-curve field classes so generated models can
-    consistently reference curved field names across Django versions.
-    """
-
-    try:
-        from django.contrib.gis.db import models as gis_models
-    except Exception:
-        return
-
-    alias_map: dict[str, str] = {
-        "CircularStringField": "LineStringField",
-        "CompoundCurveField": "MultiLineStringField",
-        "CurvePolygonField": "PolygonField",
-        "MultiCurveField": "MultiLineStringField",
-        "MultiSurfaceField": "MultiPolygonField",
-    }
-
-    for alias_name, target_name in alias_map.items():
-        if hasattr(gis_models, alias_name):
-            continue
-        target = getattr(gis_models, target_name, None)
-        if target is not None:
-            setattr(gis_models, alias_name, target)
