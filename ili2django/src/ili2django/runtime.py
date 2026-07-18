@@ -278,7 +278,13 @@ class Ili2PyBridge:
 
         return base_label
 
-    def import_xtf(self, xtf_path: str, *, django_router: Any | None = None) -> dict[str, int]:
+    def import_xtf(
+        self,
+        xtf_path: str,
+        *,
+        django_router: Any | None = None,
+        continue_on_error: bool = False,
+    ) -> dict[str, int]:
         """Import XTF into Django domain objects.
 
         Import/export use xsdata for XML parsing/serialization and build the XTF
@@ -293,6 +299,7 @@ class Ili2PyBridge:
         self._last_import_diagnostics = {
             "mode": "started",
             "reason": None,
+            "continue_on_error": continue_on_error,
             "baskets_seen": 0,
             "records_seen": 0,
             "records_imported": 0,
@@ -382,11 +389,18 @@ class Ili2PyBridge:
                         self._last_import_diagnostics["upsert_errors"] = int(
                             self._last_import_diagnostics["upsert_errors"] or 0
                         ) + 1
+                        error_reason = (
+                            "upsert error "
+                            f"({type(exc).__name__}) for "
+                            f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name} "
+                            f"tid={tid}: {exc}"
+                        )
                         if not self._last_import_diagnostics.get("reason"):
-                            self._last_import_diagnostics["reason"] = (
-                                f"upsert error ({type(exc).__name__}): {exc}"
-                            )
-                        continue
+                            self._last_import_diagnostics["reason"] = error_reason
+                        if continue_on_error:
+                            continue
+                        self._last_import_diagnostics["mode"] = "failed_fast"
+                        raise
                     class_ref = f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
                     imported_counts[class_ref] = imported_counts.get(class_ref, 0) + 1
                     self._last_import_diagnostics["records_imported"] = int(
@@ -402,10 +416,17 @@ class Ili2PyBridge:
                 self._last_import_diagnostics["reference_errors"] = int(
                     self._last_import_diagnostics["reference_errors"] or 0
                 ) + 1
+                error_reason = (
+                    "reference error "
+                    f"({type(exc).__name__}) for {model.__name__} "
+                    f"tid={source_tid} field={field_name} target_tid={target_tid}: {exc}"
+                )
                 if not self._last_import_diagnostics.get("reason"):
-                    self._last_import_diagnostics["reason"] = (
-                        f"reference error ({type(exc).__name__}): {exc}"
-                    )
+                    self._last_import_diagnostics["reason"] = error_reason
+                if continue_on_error:
+                    continue
+                self._last_import_diagnostics["mode"] = "failed_fast"
+                raise
 
         if not imported_counts:
             upsert_errors = int(self._last_import_diagnostics.get("upsert_errors") or 0)

@@ -66,6 +66,22 @@ class MemoryRouter:
         self.rows[model][source_tid][field_name] = self.rows[target_model][target_tid]
 
 
+class FailingUpsertRouter(MemoryRouter):
+    def __init__(
+        self,
+        models: list[type[object]],
+        *,
+        failing_model_name: str,
+    ) -> None:
+        super().__init__(models)
+        self._failing_model_name = failing_model_name
+
+    def upsert(self, model: type[object], tid: str, values: dict[str, object]) -> None:
+        if model.__name__ == self._failing_model_name:
+            raise RuntimeError(f"forced upsert failure for {model.__name__}")
+        super().upsert(model, tid, values)
+
+
 class MemoryProvider:
     def __init__(self, objects_by_model: dict[type[object], list[object]], *, basket_id: str) -> None:
         self._objects_by_model = objects_by_model
@@ -225,6 +241,147 @@ def test_bridge_imports_xtf24_lowercase_transfer_shape(tmp_path):
         assert router.rows[Child]["c1"]["count"] == 3
         assert router.rows[Child]["c1"]["active"] is True
         assert router.rows[Child]["c1"]["parent"]["tid"] == "p1"
+
+
+def test_bridge_imports_fail_fast_by_default_on_first_upsert_error(tmp_path):
+    if sys.version_info >= (3, 14):
+        pytest.skip("Runtime parser path is currently expected to run on Python 3.13 in this repo")
+
+    class Parent:
+        __ili2django__ = {"oid": "DemoModel.Main.Parent", "qname": "demo.Parent"}
+
+    Parent._meta = FakeMeta(
+        [
+            FakeField("from_field", "DemoModel.Main.Parent.From", "CharField"),
+            FakeField("number", "DemoModel.Main.Parent.Number", "IntegerField"),
+        ]
+    )
+
+    class Child:
+        __ili2django__ = {"oid": "DemoModel.Main.Child", "qname": "demo.Child"}
+
+    Child._meta = FakeMeta(
+        [
+            FakeField("name", "DemoModel.Main.Child.Name", "CharField"),
+            FakeField("count", "DemoModel.Main.Child.Count", "IntegerField"),
+            FakeField("active", "DemoModel.Main.Child.Active", "BooleanField"),
+            FakeField("parent", "DemoModel.Main.Link_Child_Parent.Parent", "ForeignKey", related_model=Parent),
+        ]
+    )
+
+    xtf_path = tmp_path / "demo24_failfast.xtf"
+    xtf_path.write_text(
+        textwrap.dedent(
+            """\
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ili:transfer xmlns:ili="http://www.interlis.ch/xtf/2.4/INTERLIS" xmlns:DemoModel="http://www.interlis.ch/xtf/2.4/DemoModel">
+                <ili:headersection>
+                    <ili:models>
+                        <ili:model>DemoModel</ili:model>
+                    </ili:models>
+                </ili:headersection>
+                <ili:datasection>
+                    <DemoModel:Main ili:bid="b1">
+                        <DemoModel:Parent ili:tid="p1">
+                            <DemoModel:From>north</DemoModel:From>
+                            <DemoModel:Number>7</DemoModel:Number>
+                        </DemoModel:Parent>
+                        <DemoModel:Child ili:tid="c1">
+                            <DemoModel:Name>child</DemoModel:Name>
+                            <DemoModel:Count>3</DemoModel:Count>
+                            <DemoModel:Active>true</DemoModel:Active>
+                            <DemoModel:Parent REF="p1"/>
+                        </DemoModel:Child>
+                    </DemoModel:Main>
+                </ili:datasection>
+            </ili:transfer>
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    bridge = Ili2PyBridge()
+    router = FailingUpsertRouter([Parent, Child], failing_model_name="Child")
+
+    with pytest.raises(RuntimeError, match="forced upsert failure"):
+        bridge.import_xtf(str(xtf_path), django_router=router)
+
+    diagnostics = bridge.get_last_import_diagnostics()
+    assert diagnostics["mode"] == "failed_fast"
+    assert diagnostics["upsert_errors"] == 1
+    assert diagnostics["records_imported"] == 1
+
+
+def test_bridge_imports_can_continue_on_error_when_enabled(tmp_path):
+    if sys.version_info >= (3, 14):
+        pytest.skip("Runtime parser path is currently expected to run on Python 3.13 in this repo")
+
+    class Parent:
+        __ili2django__ = {"oid": "DemoModel.Main.Parent", "qname": "demo.Parent"}
+
+    Parent._meta = FakeMeta(
+        [
+            FakeField("from_field", "DemoModel.Main.Parent.From", "CharField"),
+            FakeField("number", "DemoModel.Main.Parent.Number", "IntegerField"),
+        ]
+    )
+
+    class Child:
+        __ili2django__ = {"oid": "DemoModel.Main.Child", "qname": "demo.Child"}
+
+    Child._meta = FakeMeta(
+        [
+            FakeField("name", "DemoModel.Main.Child.Name", "CharField"),
+            FakeField("count", "DemoModel.Main.Child.Count", "IntegerField"),
+            FakeField("active", "DemoModel.Main.Child.Active", "BooleanField"),
+            FakeField("parent", "DemoModel.Main.Link_Child_Parent.Parent", "ForeignKey", related_model=Parent),
+        ]
+    )
+
+    xtf_path = tmp_path / "demo24_continue.xtf"
+    xtf_path.write_text(
+        textwrap.dedent(
+            """\
+            <?xml version="1.0" encoding="UTF-8"?>
+            <ili:transfer xmlns:ili="http://www.interlis.ch/xtf/2.4/INTERLIS" xmlns:DemoModel="http://www.interlis.ch/xtf/2.4/DemoModel">
+                <ili:headersection>
+                    <ili:models>
+                        <ili:model>DemoModel</ili:model>
+                    </ili:models>
+                </ili:headersection>
+                <ili:datasection>
+                    <DemoModel:Main ili:bid="b1">
+                        <DemoModel:Parent ili:tid="p1">
+                            <DemoModel:From>north</DemoModel:From>
+                            <DemoModel:Number>7</DemoModel:Number>
+                        </DemoModel:Parent>
+                        <DemoModel:Child ili:tid="c1">
+                            <DemoModel:Name>child</DemoModel:Name>
+                            <DemoModel:Count>3</DemoModel:Count>
+                            <DemoModel:Active>true</DemoModel:Active>
+                            <DemoModel:Parent REF="p1"/>
+                        </DemoModel:Child>
+                    </DemoModel:Main>
+                </ili:datasection>
+            </ili:transfer>
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    bridge = Ili2PyBridge()
+    router = FailingUpsertRouter([Parent, Child], failing_model_name="Child")
+    imported_counts = bridge.import_xtf(
+        str(xtf_path),
+        django_router=router,
+        continue_on_error=True,
+    )
+
+    assert imported_counts == {"DemoModel.Main.Parent": 1}
+    diagnostics = bridge.get_last_import_diagnostics()
+    assert diagnostics["continue_on_error"] is True
+    assert diagnostics["upsert_errors"] == 1
+    assert diagnostics["records_imported"] == 1
 
 
 def test_bridge_extracts_multilingual_translations_from_secondary_imd():
