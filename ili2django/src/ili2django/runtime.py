@@ -298,6 +298,8 @@ class Ili2PyBridge:
             "records_imported": 0,
             "upsert_errors": 0,
             "reference_errors": 0,
+            "missing_geometry_values": 0,
+            "missing_geometry_fields": [],
         }
 
         router = self._router_adapter(django_router)
@@ -356,6 +358,24 @@ class Ili2PyBridge:
                         geometry_value = geometry_values.get((tid, geometry_spec.xml_name))
                         if geometry_value is not None:
                             scalar_values[geometry_spec.django_name] = geometry_value
+                            continue
+                        self._last_import_diagnostics["missing_geometry_values"] = int(
+                            self._last_import_diagnostics["missing_geometry_values"] or 0
+                        ) + 1
+                        missing_geometry_fields = self._last_import_diagnostics.setdefault(
+                            "missing_geometry_fields", []
+                        )
+                        if len(missing_geometry_fields) < 25:
+                            missing_geometry_fields.append(
+                                {
+                                    "tid": tid,
+                                    "model": model_spec.model_name,
+                                    "topic": model_spec.topic_name,
+                                    "class": model_spec.class_name,
+                                    "field": geometry_spec.django_name,
+                                    "xml_name": geometry_spec.xml_name,
+                                }
+                            )
                     try:
                         router.upsert(model_spec.model, tid, scalar_values)
                     except Exception as exc:
