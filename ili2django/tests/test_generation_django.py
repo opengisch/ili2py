@@ -264,22 +264,29 @@ def test_duplicate_class_names_get_disambiguated() -> None:
     assert model_names["Model.TopicOne.City"] == "City"
 
 
-def test_field_expression_uses_enum_fk_target() -> None:
+def test_field_expression_uses_enum_choices() -> None:
     attribute = SimpleNamespace(
         type_restrictions={"mandatory": True},
         geometric=False,
         types=["Status"],
         reference_targets=[],
     )
+    enum_ref = SimpleNamespace(
+        model_name="StatusValue",
+        values=["active", "inactive"],
+    )
 
     expression = _field_expression(
         attribute,
         class_map={},
         srid=2056,
-        enum_fk_target="app.StatusValue",
+        enum_ref=enum_ref,
     )
 
-    assert expression.startswith("models.ForeignKey('app.StatusValue'")
+    assert expression == (
+        "models.CharField(max_length=8, choices=StatusValueChoices.choices, "
+        "null=False, blank=False)"
+    )
 
 
 def test_nullable_prefers_multiplicity_min_over_mandatory() -> None:
@@ -291,7 +298,7 @@ def test_nullable_prefers_multiplicity_min_over_mandatory() -> None:
     assert _nullable(restrictions) is True
 
 
-def test_collect_enum_refs_and_render_models_include_value_lists() -> None:
+def test_collect_enum_refs_and_render_models_include_choices_only_value_lists() -> None:
     enum = SimpleNamespace(
         identifier="Model.Topic.Status",
         name="Status",
@@ -336,15 +343,14 @@ def test_collect_enum_refs_and_render_models_include_value_lists() -> None:
         srid=2056,
     )
 
-    assert "class StatusValue(models.Model):" in content
     assert "from django.utils.translation import gettext_lazy as _" in content
     assert "from ili2django.choices import IliChoice, IliChoices" in content
     assert "__ili2django_values__ = ['active', 'inactive']" in content
     assert "__ili2django_tree__ = False" in content
     assert "class StatusValueChoices(IliChoices):" in content
     assert "ACTIVE = IliChoice('active', _('active'), order=0)" in content
-    assert "def __str__(self) -> str:" in content
-    assert "models.ForeignKey('ili_demo.StatusValue'" in content
+    assert "class StatusValue(models.Model):" not in content
+    assert "models.CharField(max_length=8, choices=StatusValueChoices.choices, null=False, blank=False)" in content
 
 
 def test_collect_enum_refs_supports_local_attribute_enums() -> None:
@@ -381,8 +387,9 @@ def test_collect_enum_refs_supports_local_attribute_enums() -> None:
         srid=2056,
     )
 
-    assert "class ParcelStatusEnumValue(models.Model):" in content
-    assert "models.ForeignKey('ili_demo.ParcelStatusEnumValue'" in content
+    assert "class ParcelStatusEnumValueChoices(IliChoices):" in content
+    assert "class ParcelStatusEnumValue(models.Model):" not in content
+    assert "models.CharField(max_length=5, choices=ParcelStatusEnumValueChoices.choices, null=True, blank=True)" in content
 
 
 def test_db_table_name_short_names_are_unchanged() -> None:
