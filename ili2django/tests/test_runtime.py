@@ -9,6 +9,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 import xml.etree.ElementTree as ET
 
+import pytest
+
 from ili2django.runtime import Ili2PyBridge
 
 
@@ -155,6 +157,76 @@ def test_bridge_exports_and_imports_supported_subset_round_trip(tmp_path):
     assert router.rows[Child]["c1"]["parent"]["tid"] == "p1"
 
 
+def test_bridge_imports_xtf24_lowercase_transfer_shape(tmp_path):
+        class Parent:
+                __ili2django__ = {"oid": "DemoModel.Main.Parent", "qname": "demo.Parent"}
+
+        Parent._meta = FakeMeta(
+                [
+                        FakeField("from_field", "DemoModel.Main.Parent.From", "CharField"),
+                        FakeField("number", "DemoModel.Main.Parent.Number", "IntegerField"),
+                ]
+        )
+
+        class Child:
+                __ili2django__ = {"oid": "DemoModel.Main.Child", "qname": "demo.Child"}
+
+        Child._meta = FakeMeta(
+                [
+                        FakeField("name", "DemoModel.Main.Child.Name", "CharField"),
+                        FakeField("count", "DemoModel.Main.Child.Count", "IntegerField"),
+                        FakeField("active", "DemoModel.Main.Child.Active", "BooleanField"),
+                        FakeField("parent", "DemoModel.Main.Link_Child_Parent.Parent", "ForeignKey", related_model=Parent),
+                ]
+        )
+
+        xtf_path = tmp_path / "demo24.xtf"
+        xtf_path.write_text(
+                textwrap.dedent(
+                        """\
+                        <?xml version="1.0" encoding="UTF-8"?>
+                        <ili:transfer xmlns:ili="http://www.interlis.ch/xtf/2.4/INTERLIS" xmlns:DemoModel="http://www.interlis.ch/xtf/2.4/DemoModel">
+                            <ili:headersection>
+                                <ili:models>
+                                    <ili:model>DemoModel</ili:model>
+                                </ili:models>
+                            </ili:headersection>
+                            <ili:datasection>
+                                <DemoModel:Main ili:bid="b1">
+                                    <DemoModel:Parent ili:tid="p1">
+                                        <DemoModel:From>north</DemoModel:From>
+                                        <DemoModel:Number>7</DemoModel:Number>
+                                    </DemoModel:Parent>
+                                    <DemoModel:Child ili:tid="c1">
+                                        <DemoModel:Name>child</DemoModel:Name>
+                                        <DemoModel:Count>3</DemoModel:Count>
+                                        <DemoModel:Active>true</DemoModel:Active>
+                                        <DemoModel:Parent REF="p1"/>
+                                    </DemoModel:Child>
+                                </DemoModel:Main>
+                            </ili:datasection>
+                        </ili:transfer>
+                        """
+                ),
+                encoding="utf-8",
+        )
+
+        bridge = Ili2PyBridge()
+        router = MemoryRouter([Parent, Child])
+        imported_counts = bridge.import_xtf(str(xtf_path), django_router=router)
+
+        assert imported_counts == {
+                "DemoModel.Main.Parent": 1,
+                "DemoModel.Main.Child": 1,
+        }
+        assert router.rows[Parent]["p1"]["from_field"] == "north"
+        assert router.rows[Parent]["p1"]["number"] == 7
+        assert router.rows[Child]["c1"]["name"] == "child"
+        assert router.rows[Child]["c1"]["count"] == 3
+        assert router.rows[Child]["c1"]["active"] is True
+        assert router.rows[Child]["c1"]["parent"]["tid"] == "p1"
+
+
 def test_bridge_extracts_multilingual_translations_from_secondary_imd():
     bridge = Ili2PyBridge()
 
@@ -207,17 +279,18 @@ def test_bridge_extracts_multilingual_translations_from_secondary_imd():
     assert bridge.get_export_label("DemoModel.Main.Parent", "Parent") == "Parent"
 
 
-def test_bridge_reports_raw_passthrough_diagnostics_on_schema_parse_fallback(tmp_path):
+def test_bridge_raises_on_schema_parse_failure_and_records_diagnostics(tmp_path):
     bridge = Ili2PyBridge()
     xtf_path = tmp_path / "empty.xtf"
     xtf_path.write_text("<TRANSFER></TRANSFER>", encoding="utf-8")
 
     with patch("ili2django.runtime.XmlParser.parse", side_effect=RuntimeError("boom")):
-        imported_counts = bridge.import_xtf(str(xtf_path), django_router=MemoryRouter([]))
+        with pytest.raises(RuntimeError, match="boom"):
+            bridge.import_xtf(str(xtf_path), django_router=MemoryRouter([]))
 
-    assert imported_counts == {}
     diagnostics = bridge.get_last_import_diagnostics()
-    assert diagnostics["mode"] == "raw_transfer_passthrough"
+    assert diagnostics["mode"] == "parse_failed"
+    assert diagnostics["reason"] == "RuntimeError: boom"
 
 
 def _normalized_xml_structure(xml_path: Path) -> tuple[object, ...]:

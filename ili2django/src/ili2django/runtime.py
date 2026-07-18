@@ -8,10 +8,10 @@ from decimal import Decimal
 import keyword
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 from ili2py.mappers.helpers import Index
 from ili2py.readers.interlis_24.ilismeta16.xsdata import Imd16Reader
-from ili2py.runtime import XtfCore
 from xsdata.formats.dataclass.parsers import XmlParser
 from xsdata.formats.dataclass.parsers.config import ParserConfig
 from xsdata.formats.dataclass.serializers import XmlSerializer
@@ -19,6 +19,36 @@ from xsdata.formats.dataclass.serializers.config import SerializerConfig
 
 
 ILI23_NAMESPACE = "http://www.interlis.ch/INTERLIS2.3"
+
+
+@dataclass(frozen=True)
+class _XtfFlavor:
+    transfer_namespace: str
+    transfer_name: str
+    header_name: str
+    data_name: str
+    models_name: str
+    model_name: str
+    bid_attr_name: str
+    tid_attr_name: str
+    attr_namespace: str | None
+    model_namespaces: dict[str, str] = field(default_factory=dict)
+
+    def model_namespace(self, model_name: str) -> str:
+        return self.model_namespaces.get(model_name, self.transfer_namespace)
+
+
+XTF_FLAVOR_23 = _XtfFlavor(
+    transfer_namespace=ILI23_NAMESPACE,
+    transfer_name="TRANSFER",
+    header_name="HEADERSECTION",
+    data_name="DATASECTION",
+    models_name="MODELS",
+    model_name="MODEL",
+    bid_attr_name="BID",
+    tid_attr_name="TID",
+    attr_namespace=None,
+)
 
 
 @dataclass(kw_only=True)
@@ -176,12 +206,10 @@ class Ili2PyBridge:
     def __init__(self, *, sender: str = "ili2django", xtf_version: str = "2.3") -> None:
         self.sender = sender
         self.xtf_version = xtf_version
-        self._xtf_core = XtfCore()
         self._metamodel: Any | None = None
         self._index: Any | None = None
         self._imd_models: dict[str, dict[str, str | None]] = {}
         self._imd_translations: dict[str, dict[str, str]] = {}
-        self._raw_transfer_xml: str | None = None
         self._last_import_diagnostics: dict[str, str | int | None] = {
             "mode": None,
             "reason": None,
@@ -261,22 +289,16 @@ class Ili2PyBridge:
         }
 
         router = self._router_adapter(django_router)
-        schema = self._build_schema(router.iter_models())
+        flavor = self._detect_xtf_flavor(path)
+        schema = self._build_schema(router.iter_models(), flavor=flavor)
         parser = XmlParser(config=ParserConfig(fail_on_unknown_properties=False))
         try:
             transfer = parser.parse(str(path), schema.transfer_type)
-            self._raw_transfer_xml = None
             self._last_import_diagnostics["mode"] = "structured"
-        except Exception:
-            # Preserve transfer-level payload as-is for interoperable round-trip
-            # when strict runtime schema parsing does not yet cover source XTF.
-            parsed = self._xtf_core.parse_transfer(str(path))
-            self._raw_transfer_xml = self._xtf_core.render_transfer(parsed)
-            self._last_import_diagnostics["mode"] = "raw_transfer_passthrough"
-            self._last_import_diagnostics["reason"] = (
-                "runtime schema parse failed; transfer preserved without object upsert"
-            )
-            return {}
+        except Exception as exc:
+            self._last_import_diagnostics["mode"] = "parse_failed"
+            self._last_import_diagnostics["reason"] = f"{type(exc).__name__}: {exc}"
+            raise
 
         pending_refs: list[tuple[type[Any], str, str, type[Any], str]] = []
         imported_counts: dict[str, int] = {}
@@ -348,10 +370,6 @@ class Ili2PyBridge:
 
         target = Path(xtf_path)
         target.parent.mkdir(parents=True, exist_ok=True)
-
-        if queryset_provider is None and self._raw_transfer_xml is not None:
-            target.write_text(self._raw_transfer_xml, encoding="utf-8")
-            return
 
         models = self._provider_models(queryset_provider)
         schema = self._build_schema(models)
@@ -469,7 +487,7 @@ class Ili2PyBridge:
                 return str(queryset_provider.get_bid(model_spec.model, obj))
         return f"{model_spec.model_name}.{model_spec.topic_name}"
 
-    def _build_schema(self, models: list[type[Any]]) -> _Schema:
+    def _build_schema(self, models: list[type[Any]], *, flavor: _XtfFlavor = XTF_FLAVOR_23) -> _Schema:
         grouped: dict[tuple[str, str], list[_ModelSpec]] = {}
 
         for model in models:
@@ -480,8 +498,16 @@ class Ili2PyBridge:
             if not isinstance(oid, str) or oid.count(".") < 2:
                 continue
             model_name, topic_name, class_name = oid.split(".", 2)
+            model_namespace = flavor.model_namespace(model_name)
             field_specs = self._field_specs(model)
-            record_type = self._record_type(model_name, topic_name, class_name, field_specs)
+            record_type = self._record_type(
+                model_name,
+                topic_name,
+                class_name,
+                field_specs,
+                flavor=flavor,
+                model_namespace=model_namespace,
+            )
             model_spec = _ModelSpec(
                 model=model,
                 model_name=model_name,
@@ -497,11 +523,19 @@ class Ili2PyBridge:
         topic_choices: list[dict[str, Any]] = []
         topic_by_type: dict[type[Any], _TopicSpec] = {}
         for (model_name, topic_name), model_specs in sorted(grouped.items()):
-            basket_type = self._basket_type(model_name, topic_name, model_specs)
+            model_namespace = flavor.model_namespace(model_name)
+            basket_type = self._basket_type(
+                model_name,
+                topic_name,
+                model_specs,
+                flavor=flavor,
+                model_namespace=model_namespace,
+            )
+            basket_xml_name = topic_name if flavor.transfer_name == "transfer" else f"{model_name}.{topic_name}"
             topic_spec = _TopicSpec(
                 model_name=model_name,
                 topic_name=topic_name,
-                basket_xml_name=f"{model_name}.{topic_name}",
+                basket_xml_name=basket_xml_name,
                 basket_type=basket_type,
                 model_specs=model_specs,
             )
@@ -511,10 +545,14 @@ class Ili2PyBridge:
                 {
                     "name": topic_spec.basket_xml_name,
                     "type": basket_type,
-                    "namespace": ILI23_NAMESPACE,
+                    "namespace": model_namespace,
                 }
             )
 
+        if flavor.transfer_name == XTF_FLAVOR_23.transfer_name and flavor.transfer_namespace == XTF_FLAVOR_23.transfer_namespace:
+            header_section_type = _HeaderSection
+        else:
+            header_section_type = self._header_section_type(flavor)
         datasection_type = make_dataclass(
             "DataSection",
             [
@@ -524,7 +562,9 @@ class Ili2PyBridge:
                     field(default_factory=list, metadata={"type": "Elements", "choices": tuple(topic_choices)}),
                 )
             ],
-            namespace={"Meta": type("Meta", (), {"namespace": ILI23_NAMESPACE})},
+            namespace={
+                "Meta": type("Meta", (), {"namespace": flavor.transfer_namespace, "name": flavor.data_name})
+            },
             kw_only=True,
         )
         transfer_type = make_dataclass(
@@ -532,16 +572,34 @@ class Ili2PyBridge:
             [
                 (
                     "headersection",
-                    _HeaderSection,
-                    field(metadata={"name": "HEADERSECTION", "type": "Element", "namespace": ILI23_NAMESPACE}),
+                    header_section_type,
+                    field(
+                        metadata={
+                            "name": flavor.header_name,
+                            "type": "Element",
+                            "namespace": flavor.transfer_namespace,
+                        }
+                    ),
                 ),
                 (
                     "datasection",
                     datasection_type,
-                    field(metadata={"name": "DATASECTION", "type": "Element", "namespace": ILI23_NAMESPACE}),
+                    field(
+                        metadata={
+                            "name": flavor.data_name,
+                            "type": "Element",
+                            "namespace": flavor.transfer_namespace,
+                        }
+                    ),
                 ),
             ],
-            namespace={"Meta": type("Meta", (), {"namespace": ILI23_NAMESPACE, "name": "TRANSFER"})},
+            namespace={
+                "Meta": type(
+                    "Meta",
+                    (),
+                    {"namespace": flavor.transfer_namespace, "name": flavor.transfer_name},
+                )
+            },
             kw_only=True,
         )
         return _Schema(
@@ -551,11 +609,130 @@ class Ili2PyBridge:
             topic_by_type=topic_by_type,
         )
 
-    def _basket_type(self, model_name: str, topic_name: str, model_specs: list[_ModelSpec]) -> type[Any]:
+    def _header_section_type(self, flavor: _XtfFlavor) -> type[Any]:
+        model_entry_type = make_dataclass(
+            "HeaderModelEntry",
+            [("value", str | None, field(default=None, metadata={"type": "Text"}))],
+            namespace={
+                "Meta": type(
+                    "Meta",
+                    (),
+                    {"namespace": flavor.transfer_namespace, "name": flavor.model_name},
+                )
+            },
+            kw_only=True,
+        )
+        models_type = make_dataclass(
+            "HeaderModels",
+            [
+                (
+                    "choice",
+                    list[model_entry_type],
+                    field(
+                        default_factory=list,
+                        metadata={
+                            "type": "Elements",
+                            "choices": (
+                                {
+                                    "name": flavor.model_name,
+                                    "type": model_entry_type,
+                                    "namespace": flavor.transfer_namespace,
+                                },
+                            ),
+                        },
+                    ),
+                )
+            ],
+            namespace={"Meta": type("Meta", (), {"namespace": flavor.transfer_namespace})},
+            kw_only=True,
+        )
+        return make_dataclass(
+            "HeaderSection",
+            [
+                (
+                    "models",
+                    models_type,
+                    field(
+                        metadata={
+                            "name": flavor.models_name,
+                            "type": "Element",
+                            "namespace": flavor.transfer_namespace,
+                        }
+                    ),
+                ),
+                (
+                    "wildcard",
+                    list[object],
+                    field(default_factory=list, metadata={"type": "Wildcard", "namespace": "##any"}),
+                ),
+            ],
+            namespace={
+                "Meta": type(
+                    "Meta",
+                    (),
+                    {"namespace": flavor.transfer_namespace, "name": flavor.header_name},
+                )
+            },
+            kw_only=True,
+        )
+
+    def _detect_xtf_flavor(self, xtf_path: Path) -> _XtfFlavor:
+        namespace_map: dict[str, str] = {}
+        root_tag: str | None = None
+        for event, data in ET.iterparse(str(xtf_path), events=("start", "start-ns")):
+            if event == "start-ns":
+                prefix, uri = data
+                namespace_map[prefix or ""] = uri
+            elif event == "start":
+                root_tag = str(data.tag)
+                break
+
+        if root_tag is None:
+            return XTF_FLAVOR_23
+
+        root_namespace, root_name = _split_tag(root_tag)
+        if root_namespace and "/xtf/2.4/" in root_namespace and root_name.lower() == "transfer":
+            model_namespaces = {
+                prefix: uri
+                for prefix, uri in namespace_map.items()
+                if prefix and uri.startswith("http://www.interlis.ch/xtf/2.4/") and prefix not in {"ili", "geom", "xsi"}
+            }
+            return _XtfFlavor(
+                transfer_namespace=root_namespace,
+                transfer_name="transfer",
+                header_name="headersection",
+                data_name="datasection",
+                models_name="models",
+                model_name="model",
+                bid_attr_name="bid",
+                tid_attr_name="tid",
+                attr_namespace=root_namespace,
+                model_namespaces=model_namespaces,
+            )
+
+        return XTF_FLAVOR_23
+
+    def _basket_type(
+        self,
+        model_name: str,
+        topic_name: str,
+        model_specs: list[_ModelSpec],
+        *,
+        flavor: _XtfFlavor,
+        model_namespace: str,
+    ) -> type[Any]:
+        bid_metadata: dict[str, Any] = {"name": flavor.bid_attr_name, "type": "Attribute"}
+        if flavor.attr_namespace:
+            bid_metadata["namespace"] = flavor.attr_namespace
         basket_fields: list[tuple[str, Any, Any]] = [
-            ("bid", str | None, field(default=None, metadata={"name": "BID", "type": "Attribute"}))
+            ("bid", str | None, field(default=None, metadata=bid_metadata))
         ]
         for model_spec in model_specs:
+            record_element_name = (
+                model_spec.class_name
+                if flavor.transfer_name == "transfer"
+                else f"{model_name}.{topic_name}.{model_spec.class_name}"
+            )
             basket_fields.append(
                 (
                     model_spec.record_attr,
@@ -563,9 +740,9 @@ class Ili2PyBridge:
                     field(
                         default_factory=list,
                         metadata={
-                            "name": f"{model_name}.{topic_name}.{model_spec.class_name}",
+                            "name": record_element_name,
                             "type": "Element",
-                            "namespace": ILI23_NAMESPACE,
+                            "namespace": model_namespace,
                         },
                     ),
                 )
@@ -573,7 +750,7 @@ class Ili2PyBridge:
         return make_dataclass(
             f"{_safe_name(model_name)}_{_safe_name(topic_name)}Basket",
             basket_fields,
-            namespace={"Meta": type("Meta", (), {"namespace": ILI23_NAMESPACE})},
+            namespace={"Meta": type("Meta", (), {"namespace": model_namespace})},
             kw_only=True,
         )
 
@@ -583,9 +760,15 @@ class Ili2PyBridge:
         topic_name: str,
         class_name: str,
         field_specs: list[_MetaFieldSpec],
+        *,
+        flavor: _XtfFlavor,
+        model_namespace: str,
     ) -> type[Any]:
+        tid_metadata: dict[str, Any] = {"name": flavor.tid_attr_name, "type": "Attribute"}
+        if flavor.attr_namespace:
+            tid_metadata["namespace"] = flavor.attr_namespace
         record_fields: list[tuple[str, Any, Any]] = [
-            ("tid", str | None, field(default=None, metadata={"name": "TID", "type": "Attribute"}))
+            ("tid", str | None, field(default=None, metadata=tid_metadata))
         ]
         for field_spec in field_specs:
             field_type: Any = field_spec.python_type | None
@@ -600,15 +783,18 @@ class Ili2PyBridge:
                         metadata={
                             "name": field_spec.xml_name,
                             "type": "Element",
-                            "namespace": ILI23_NAMESPACE,
+                            "namespace": model_namespace,
                         },
                     ),
                 )
             )
+        record_meta: dict[str, Any] = {"namespace": model_namespace}
+        if flavor.transfer_name == "transfer":
+            record_meta["name"] = class_name
         return make_dataclass(
             f"{_safe_name(model_name)}_{_safe_name(topic_name)}_{_safe_name(class_name)}Record",
             record_fields,
-            namespace={"Meta": type("Meta", (), {"namespace": ILI23_NAMESPACE})},
+            namespace={"Meta": type("Meta", (), record_meta)},
             kw_only=True,
         )
 
@@ -699,3 +885,10 @@ def _safe_name(value: str) -> str:
     if keyword.iskeyword(token):
         token = f"{token}_field"
     return token
+
+
+def _split_tag(tag: str) -> tuple[str | None, str]:
+    if tag.startswith("{") and "}" in tag:
+        namespace, name = tag[1:].split("}", 1)
+        return namespace, name
+    return None, tag
