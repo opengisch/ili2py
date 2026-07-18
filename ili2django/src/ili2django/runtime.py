@@ -106,6 +106,14 @@ class _MetaFieldSpec:
 
 
 @dataclass
+class _GeometryFieldSpec:
+    django_name: str
+    xml_name: str
+    srid: int | None
+    geom_type: str | None
+
+
+@dataclass
 class _ModelSpec:
     model: type[Any]
     model_name: str
@@ -216,6 +224,8 @@ class Ili2PyBridge:
             "baskets_seen": 0,
             "records_seen": 0,
             "records_imported": 0,
+            "upsert_errors": 0,
+            "reference_errors": 0,
         }
 
     def get_last_import_diagnostics(self) -> dict[str, str | int | None]:
@@ -286,11 +296,15 @@ class Ili2PyBridge:
             "baskets_seen": 0,
             "records_seen": 0,
             "records_imported": 0,
+            "upsert_errors": 0,
+            "reference_errors": 0,
         }
 
         router = self._router_adapter(django_router)
         flavor = self._detect_xtf_flavor(path)
         schema = self._build_schema(router.iter_models(), flavor=flavor)
+        geometry_specs = self._geometry_specs_for_schema(schema)
+        geometry_values = self._extract_geometry_values(path, geometry_specs)
         parser = XmlParser(config=ParserConfig(fail_on_unknown_properties=False))
         try:
             transfer = parser.parse(str(path), schema.transfer_type)
@@ -338,7 +352,21 @@ class Ili2PyBridge:
                                 )
                             continue
                         scalar_values[field_spec.django_name] = raw_value
-                    router.upsert(model_spec.model, tid, scalar_values)
+                    for geometry_spec in geometry_specs.get(model_spec.model, []):
+                        geometry_value = geometry_values.get((tid, geometry_spec.xml_name))
+                        if geometry_value is not None:
+                            scalar_values[geometry_spec.django_name] = geometry_value
+                    try:
+                        router.upsert(model_spec.model, tid, scalar_values)
+                    except Exception as exc:
+                        self._last_import_diagnostics["upsert_errors"] = int(
+                            self._last_import_diagnostics["upsert_errors"] or 0
+                        ) + 1
+                        if not self._last_import_diagnostics.get("reason"):
+                            self._last_import_diagnostics["reason"] = (
+                                f"upsert error ({type(exc).__name__}): {exc}"
+                            )
+                        continue
                     class_ref = f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
                     imported_counts[class_ref] = imported_counts.get(class_ref, 0) + 1
                     self._last_import_diagnostics["records_imported"] = int(
@@ -348,13 +376,31 @@ class Ili2PyBridge:
         for model, source_tid, field_name, target_model, target_tid in pending_refs:
             if target_model is None:
                 continue
-            router.set_reference(model, source_tid, field_name, target_model, target_tid)
+            try:
+                router.set_reference(model, source_tid, field_name, target_model, target_tid)
+            except Exception as exc:
+                self._last_import_diagnostics["reference_errors"] = int(
+                    self._last_import_diagnostics["reference_errors"] or 0
+                ) + 1
+                if not self._last_import_diagnostics.get("reason"):
+                    self._last_import_diagnostics["reason"] = (
+                        f"reference error ({type(exc).__name__}): {exc}"
+                    )
 
         if not imported_counts:
-            self._last_import_diagnostics["mode"] = "no_matching_records"
-            self._last_import_diagnostics["reason"] = (
-                "no records matched generated model/topic/class metadata"
-            )
+            upsert_errors = int(self._last_import_diagnostics.get("upsert_errors") or 0)
+            reference_errors = int(self._last_import_diagnostics.get("reference_errors") or 0)
+            if upsert_errors or reference_errors:
+                self._last_import_diagnostics["mode"] = "partial_failures"
+                if not self._last_import_diagnostics.get("reason"):
+                    self._last_import_diagnostics["reason"] = (
+                        f"rows failed during import (upsert_errors={upsert_errors}, reference_errors={reference_errors})"
+                    )
+            else:
+                self._last_import_diagnostics["mode"] = "no_matching_records"
+                self._last_import_diagnostics["reason"] = (
+                    "no records matched generated model/topic/class metadata"
+                )
         else:
             self._last_import_diagnostics["mode"] = "structured"
 
@@ -826,6 +872,196 @@ class Ili2PyBridge:
                 )
             )
         return specs
+
+    def _geometry_specs_for_schema(self, schema: _Schema) -> dict[type[Any], list[_GeometryFieldSpec]]:
+        specs_by_model: dict[type[Any], list[_GeometryFieldSpec]] = {}
+        seen_models: set[type[Any]] = set()
+        for topic in schema.topics:
+            for model_spec in topic.model_specs:
+                if model_spec.model in seen_models:
+                    continue
+                seen_models.add(model_spec.model)
+                specs = self._geometry_field_specs(model_spec.model)
+                if specs:
+                    specs_by_model[model_spec.model] = specs
+        return specs_by_model
+
+    def _geometry_field_specs(self, model: type[Any]) -> list[_GeometryFieldSpec]:
+        specs: list[_GeometryFieldSpec] = []
+        for field_obj in self._iter_model_fields(model):
+            field_meta = getattr(field_obj, "_ili2django", None)
+            if not field_meta:
+                continue
+            xml_name = str(field_meta.get("oid", "")).split(".")[-1]
+            django_name = getattr(field_obj, "name", None)
+            if not xml_name or not django_name:
+                continue
+            if not self._is_geometry_field(field_obj):
+                continue
+            srid = getattr(field_obj, "srid", None)
+            if not isinstance(srid, int):
+                srid = None
+            geom_type = getattr(field_obj, "geom_type", None)
+            if geom_type is not None:
+                geom_type = str(geom_type)
+            specs.append(
+                _GeometryFieldSpec(
+                    django_name=django_name,
+                    xml_name=xml_name,
+                    srid=srid,
+                    geom_type=geom_type,
+                )
+            )
+        return specs
+
+    def _is_geometry_field(self, field_obj: Any) -> bool:
+        internal_type = None
+        if hasattr(field_obj, "get_internal_type"):
+            try:
+                internal_type = field_obj.get_internal_type()
+            except Exception:
+                internal_type = None
+        if internal_type is None:
+            internal_type = type(field_obj).__name__
+        geometry_types = {
+            "GeometryField",
+            "PointField",
+            "LineStringField",
+            "PolygonField",
+            "MultiPointField",
+            "MultiLineStringField",
+            "MultiPolygonField",
+            "GeometryCollectionField",
+            "CircularStringField",
+            "CompoundCurveField",
+            "CurvePolygonField",
+            "MultiCurveField",
+            "MultiSurfaceField",
+        }
+        return str(internal_type) in geometry_types
+
+    def _extract_geometry_values(
+        self,
+        xtf_path: Path,
+        specs_by_model: dict[type[Any], list[_GeometryFieldSpec]],
+    ) -> dict[tuple[str, str], Any]:
+        specs: list[_GeometryFieldSpec] = []
+        for model_specs in specs_by_model.values():
+            specs.extend(model_specs)
+        if not specs:
+            return {}
+
+        target_names = {spec.xml_name for spec in specs}
+        spec_by_xml_name: dict[str, _GeometryFieldSpec] = {}
+        for spec in specs:
+            spec_by_xml_name.setdefault(spec.xml_name, spec)
+
+        values: dict[tuple[str, str], Any] = {}
+        root = ET.parse(str(xtf_path)).getroot()
+        for element in root.iter():
+            tid = self._extract_tid(element)
+            if not tid:
+                continue
+            for child in list(element):
+                _, child_name = _split_tag(str(child.tag))
+                if child_name not in target_names:
+                    continue
+                geometry_spec = spec_by_xml_name.get(child_name)
+                if geometry_spec is None:
+                    continue
+                geometry_value = self._parse_geometry_element(child, geometry_spec)
+                if geometry_value is None:
+                    continue
+                values[(tid, child_name)] = geometry_value
+        return values
+
+    def _extract_tid(self, element: ET.Element) -> str | None:
+        for attr_name, attr_value in element.attrib.items():
+            _, local_name = _split_tag(str(attr_name))
+            if local_name.lower() == "tid":
+                value = str(attr_value).strip()
+                return value or None
+        return None
+
+    def _parse_geometry_element(
+        self,
+        geometry_element: ET.Element,
+        geometry_spec: _GeometryFieldSpec,
+    ) -> Any | None:
+        try:
+            from django.contrib.gis.geos import LinearRing, Polygon
+        except Exception:
+            return None
+
+        surface = None
+        for element in geometry_element.iter():
+            _, name = _split_tag(str(element.tag))
+            if name == "surface":
+                surface = element
+                break
+        if surface is None:
+            return None
+
+        exterior = None
+        for element in surface:
+            _, name = _split_tag(str(element.tag))
+            if name == "exterior":
+                exterior = element
+                break
+        if exterior is None:
+            return None
+
+        polyline = None
+        for element in exterior:
+            _, name = _split_tag(str(element.tag))
+            if name == "polyline":
+                polyline = element
+                break
+        if polyline is None:
+            return None
+
+        coords: list[tuple[float, float]] = []
+        for coord in polyline:
+            _, coord_name = _split_tag(str(coord.tag))
+            if coord_name != "coord":
+                continue
+            c1 = None
+            c2 = None
+            for axis in coord:
+                _, axis_name = _split_tag(str(axis.tag))
+                if axis_name == "c1" and axis.text is not None:
+                    c1 = float(axis.text)
+                elif axis_name == "c2" and axis.text is not None:
+                    c2 = float(axis.text)
+            if c1 is None or c2 is None:
+                continue
+            coords.append((c1, c2))
+
+        if len(coords) < 3:
+            return None
+        if coords[0] != coords[-1]:
+            coords.append(coords[0])
+
+        try:
+            ring = LinearRing(coords)
+            polygon = Polygon(ring)
+        except Exception:
+            return None
+
+        polygon_wkt = polygon.wkt
+        linear_ring_text = polygon_wkt.removeprefix("POLYGON((").removesuffix("))")
+
+        geom_type = (geometry_spec.geom_type or "").upper()
+        if "CURVEPOLYGON" in geom_type:
+            wkt_body = f"CURVEPOLYGON(({linear_ring_text}))"
+        elif "MULTIPOLYGON" in geom_type or "MULTISURFACE" in geom_type:
+            wkt_body = f"MULTIPOLYGON((({linear_ring_text})))"
+        else:
+            wkt_body = polygon_wkt
+
+        if geometry_spec.srid is not None:
+            return f"SRID={geometry_spec.srid};{wkt_body}"
+        return wkt_body
 
     def _iter_model_fields(self, model: type[Any]) -> list[Any]:
         meta = getattr(model, "_meta", None)
