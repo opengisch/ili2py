@@ -111,6 +111,7 @@ class _GeometryFieldSpec:
     xml_name: str
     srid: int | None
     geom_type: str | None
+    internal_type: str | None
 
 
 @dataclass
@@ -313,7 +314,7 @@ class Ili2PyBridge:
         flavor = self._detect_xtf_flavor(path)
         schema = self._build_schema(router.iter_models(), flavor=flavor)
         geometry_specs = self._geometry_specs_for_schema(schema)
-        geometry_values = self._extract_geometry_values(path, geometry_specs)
+        geometry_values = self._extract_geometry_values(path, schema, geometry_specs, flavor=flavor)
         parser = XmlParser(config=ParserConfig(fail_on_unknown_properties=False))
         try:
             transfer = parser.parse(str(path), schema.transfer_type)
@@ -945,12 +946,23 @@ class Ili2PyBridge:
             geom_type = getattr(field_obj, "geom_type", None)
             if geom_type is not None:
                 geom_type = str(geom_type)
+
+            internal_type = None
+            if hasattr(field_obj, "get_internal_type"):
+                try:
+                    internal_type = field_obj.get_internal_type()
+                except Exception:
+                    internal_type = None
+            if internal_type is None:
+                internal_type = type(field_obj).__name__
+
             specs.append(
                 _GeometryFieldSpec(
                     django_name=django_name,
                     xml_name=xml_name,
                     srid=srid,
                     geom_type=geom_type,
+                    internal_type=str(internal_type),
                 )
             )
         return specs
@@ -984,28 +996,42 @@ class Ili2PyBridge:
     def _extract_geometry_values(
         self,
         xtf_path: Path,
+        schema: _Schema,
         specs_by_model: dict[type[Any], list[_GeometryFieldSpec]],
+        *,
+        flavor: _XtfFlavor,
     ) -> dict[tuple[str, str], Any]:
-        specs: list[_GeometryFieldSpec] = []
-        for model_specs in specs_by_model.values():
-            specs.extend(model_specs)
-        if not specs:
-            return {}
+        record_spec_by_element_name: dict[str, dict[str, _GeometryFieldSpec]] = {}
+        for topic in schema.topics:
+            for model_spec in topic.model_specs:
+                geometry_specs = specs_by_model.get(model_spec.model, [])
+                if not geometry_specs:
+                    continue
+                record_element_name = (
+                    model_spec.class_name if flavor.transfer_name == "transfer" else f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
+                )
+                record_spec_by_element_name[record_element_name] = {
+                    spec.xml_name: spec for spec in geometry_specs
+                }
 
-        target_names = {spec.xml_name for spec in specs}
-        spec_by_xml_name: dict[str, _GeometryFieldSpec] = {}
-        for spec in specs:
-            spec_by_xml_name.setdefault(spec.xml_name, spec)
+        if not record_spec_by_element_name:
+            return {}
 
         values: dict[tuple[str, str], Any] = {}
         root = ET.parse(str(xtf_path)).getroot()
+        parent_map: dict[int, ET.Element] = {id(child): parent for parent in root.iter() for child in list(parent)}
         for element in root.iter():
             tid = self._extract_tid(element)
             if not tid:
                 continue
             for child in list(element):
                 _, child_name = _split_tag(str(child.tag))
-                if child_name not in target_names:
+                parent = parent_map.get(id(child))
+                if parent is None:
+                    continue
+                _, parent_name = _split_tag(str(parent.tag))
+                spec_by_xml_name = record_spec_by_element_name.get(parent_name)
+                if spec_by_xml_name is None:
                     continue
                 geometry_spec = spec_by_xml_name.get(child_name)
                 if geometry_spec is None:
@@ -1030,7 +1056,11 @@ class Ili2PyBridge:
         geometry_spec: _GeometryFieldSpec,
     ) -> Any | None:
         try:
-            from django.contrib.gis.geos import LinearRing, Polygon
+            from django.contrib.gis.geos import LinearRing, MultiPolygon, Polygon
+            try:
+                from django.contrib.gis.geos import CurvePolygon
+            except Exception:
+                CurvePolygon = None
         except Exception:
             return None
 
@@ -1089,20 +1119,20 @@ class Ili2PyBridge:
         except Exception:
             return None
 
-        polygon_wkt = polygon.wkt
-        linear_ring_text = polygon_wkt.removeprefix("POLYGON((").removesuffix("))")
-
+        ring_text = ", ".join(f"{x} {y}" for x, y in coords)
+        internal_type = (geometry_spec.internal_type or "").upper()
         geom_type = (geometry_spec.geom_type or "").upper()
-        if "CURVEPOLYGON" in geom_type:
-            wkt_body = f"CURVEPOLYGON(({linear_ring_text}))"
-        elif "MULTIPOLYGON" in geom_type or "MULTISURFACE" in geom_type:
-            wkt_body = f"MULTIPOLYGON((({linear_ring_text})))"
+        if (internal_type == "CURVEPOLYGONFIELD" or "CURVEPOLYGON" in geom_type) and CurvePolygon is not None:
+            geometry: Any = CurvePolygon(ring)
+        elif internal_type == "MULTIPOLYGONFIELD" or "MULTIPOLYGON" in geom_type:
+            geometry: Any = MultiPolygon(polygon)
         else:
-            wkt_body = polygon_wkt
+            # For curve-capable field classes, import as linearized polygon so GEOS can parse it.
+            geometry = polygon
 
         if geometry_spec.srid is not None:
-            return f"SRID={geometry_spec.srid};{wkt_body}"
-        return wkt_body
+            geometry.srid = geometry_spec.srid
+        return geometry
 
     def _iter_model_fields(self, model: type[Any]) -> list[Any]:
         meta = getattr(model, "_meta", None)
