@@ -180,6 +180,32 @@ def _normalize_geometry_value(value: AnyElement) -> NormalizedGeometry:
     if geometry_node is None:
         return {"type": "RawGeometry", "xml": _geometry_wrapper_to_dict(value)}
 
+    direct_children = _direct_geometry_children(geometry_node)
+    if any(_local_name(child.qname) in {"arc", "curve", "circularstring", "compoundcurve"} for child in direct_children):
+        return {"type": "RawGeometry", "xml": _geometry_wrapper_to_dict(value)}
+
+    direct_kinds = [_local_name(child.qname) for child in direct_children]
+    if direct_kinds and all(kind == "coord" for kind in direct_kinds):
+        points = [point for point in (_coord_to_position(child) for child in direct_children) if point]
+        if len(points) == 1:
+            return {"type": "Point", "coordinates": points[0]}
+        if len(points) > 1:
+            return {"type": "MultiPoint", "coordinates": points}
+
+    if direct_kinds and all(kind == "polyline" for kind in direct_kinds):
+        lines = [line for line in (_polyline_to_coordinates(child) for child in direct_children) if line]
+        if len(lines) == 1:
+            return {"type": "LineString", "coordinates": lines[0]}
+        if len(lines) > 1:
+            return {"type": "MultiLineString", "coordinates": lines}
+
+    if direct_kinds and all(kind == "surface" for kind in direct_kinds):
+        polygons = [polygon for polygon in (_surface_to_coordinates(child) for child in direct_children) if polygon]
+        if len(polygons) == 1:
+            return {"type": "Polygon", "coordinates": polygons[0]}
+        if len(polygons) > 1:
+            return {"type": "MultiPolygon", "coordinates": polygons}
+
     geometry_node = _find_geometry_node(geometry_node)
     if geometry_node is None:
         return {"type": "RawGeometry", "xml": _geometry_wrapper_to_dict(value)}
@@ -239,6 +265,10 @@ def _find_geometry_node(value: AnyElement) -> AnyElement | None:
         if found is not None:
             return found
     return None
+
+
+def _direct_geometry_children(node: AnyElement) -> list[AnyElement]:
+    return [child for child in getattr(node, "children", []) or [] if isinstance(child, AnyElement)]
 
 
 def _polyline_to_coordinates(polyline: AnyElement) -> list[list[NormalizedScalar]]:
