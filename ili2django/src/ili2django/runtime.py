@@ -315,6 +315,7 @@ class Ili2PyBridge:
         schema = self._build_schema(router.iter_models(), flavor=flavor)
         geometry_specs = self._geometry_specs_for_schema(schema)
         geometry_values = self._extract_geometry_values(path, schema, geometry_specs, flavor=flavor)
+        reference_values_map = self._extract_reference_values(path, schema, flavor=flavor)
         parser = XmlParser(config=ParserConfig(fail_on_unknown_properties=False))
         try:
             transfer = parser.parse(str(path), schema.transfer_type)
@@ -324,7 +325,7 @@ class Ili2PyBridge:
             self._last_import_diagnostics["reason"] = f"{type(exc).__name__}: {exc}"
             raise
 
-        pending_refs: list[tuple[type[Any], str, str, type[Any], str]] = []
+        pending_rows: list[tuple[str, type[Any], str, dict[str, Any], list[tuple[str, type[Any], str]]]] = []
         imported_counts: dict[str, int] = {}
         datasection = getattr(transfer, "datasection", None)
         if datasection is None:
@@ -338,23 +339,28 @@ class Ili2PyBridge:
             if topic is None:
                 continue
             for model_spec in topic.model_specs:
+                if not self._has_tid_field(model_spec.model):
+                    continue
                 for record in getattr(basket, model_spec.record_attr, []):
                     self._last_import_diagnostics["records_seen"] = int(self._last_import_diagnostics["records_seen"] or 0) + 1
                     tid = getattr(record, "tid", None)
                     if not tid:
                         continue
                     scalar_values: dict[str, Any] = {}
+                    pending_refs: list[tuple[str, type[Any], str]] = []
                     for field_spec in model_spec.fields:
                         raw_value = getattr(record, field_spec.py_name, None)
                         if raw_value is None:
                             continue
                         if field_spec.kind == "ref":
                             ref_tid = getattr(raw_value, "ref", None)
+                            if ref_tid is None and isinstance(raw_value, str):
+                                ref_tid = raw_value
+                            if not ref_tid:
+                                ref_tid = reference_values_map.get((tid, field_spec.xml_name))
                             if ref_tid:
                                 pending_refs.append(
                                     (
-                                        model_spec.model,
-                                        tid,
                                         field_spec.django_name,
                                         field_spec.related_model,
                                         ref_tid,
@@ -384,6 +390,10 @@ class Ili2PyBridge:
                                     "xml_name": geometry_spec.xml_name,
                                 }
                             )
+                    class_ref = f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
+                    if pending_refs:
+                        pending_rows.append((class_ref, model_spec.model, tid, scalar_values, pending_refs))
+                        continue
                     try:
                         router.upsert(model_spec.model, tid, scalar_values)
                     except Exception as exc:
@@ -393,7 +403,7 @@ class Ili2PyBridge:
                         error_reason = (
                             "upsert error "
                             f"({type(exc).__name__}) for "
-                            f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name} "
+                            f"{class_ref} "
                             f"tid={tid}: {exc}"
                         )
                         if not self._last_import_diagnostics.get("reason"):
@@ -402,32 +412,68 @@ class Ili2PyBridge:
                             continue
                         self._last_import_diagnostics["mode"] = "failed_fast"
                         raise
-                    class_ref = f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
                     imported_counts[class_ref] = imported_counts.get(class_ref, 0) + 1
                     self._last_import_diagnostics["records_imported"] = int(
                         self._last_import_diagnostics["records_imported"] or 0
                     ) + 1
 
-        for model, source_tid, field_name, target_model, target_tid in pending_refs:
-            if target_model is None:
-                continue
-            try:
-                router.set_reference(model, source_tid, field_name, target_model, target_tid)
-            except Exception as exc:
-                self._last_import_diagnostics["reference_errors"] = int(
-                    self._last_import_diagnostics["reference_errors"] or 0
-                ) + 1
-                error_reason = (
-                    "reference error "
-                    f"({type(exc).__name__}) for {model.__name__} "
-                    f"tid={source_tid} field={field_name} target_tid={target_tid}: {exc}"
-                )
-                if not self._last_import_diagnostics.get("reason"):
-                    self._last_import_diagnostics["reason"] = error_reason
-                if continue_on_error:
+        unresolved_rows: list[tuple[str, type[Any], str, dict[str, Any], list[tuple[str, type[Any], str]]]] = []
+        while pending_rows:
+            progress_made = False
+            next_pending_rows: list[tuple[str, type[Any], str, dict[str, Any], list[tuple[str, type[Any], str]]]] = []
+            for class_ref, model, tid, scalar_values, reference_values in pending_rows:
+                resolved_values = dict(scalar_values)
+                unresolved_refs: list[tuple[str, type[Any], str]] = []
+                for field_name, target_model, target_tid in reference_values:
+                    target = target_model.objects.filter(tid=target_tid).first() if target_model is not None else None
+                    if target is None:
+                        unresolved_refs.append((field_name, target_model, target_tid))
+                        continue
+                    resolved_values[field_name] = target
+                if unresolved_refs:
+                    next_pending_rows.append((class_ref, model, tid, scalar_values, unresolved_refs))
                     continue
+                try:
+                    router.upsert(model, tid, resolved_values)
+                except Exception as exc:
+                    self._last_import_diagnostics["upsert_errors"] = int(
+                        self._last_import_diagnostics["upsert_errors"] or 0
+                    ) + 1
+                    error_reason = (
+                        "upsert error "
+                        f"({type(exc).__name__}) for {class_ref} tid={tid}: {exc}"
+                    )
+                    if not self._last_import_diagnostics.get("reason"):
+                        self._last_import_diagnostics["reason"] = error_reason
+                    if continue_on_error:
+                        continue
+                    self._last_import_diagnostics["mode"] = "failed_fast"
+                    raise
+                imported_counts[class_ref] = imported_counts.get(class_ref, 0) + 1
+                self._last_import_diagnostics["records_imported"] = int(
+                    self._last_import_diagnostics["records_imported"] or 0
+                ) + 1
+                progress_made = True
+            if not progress_made:
+                unresolved_rows = next_pending_rows
+                break
+            pending_rows = next_pending_rows
+
+        if unresolved_rows:
+            self._last_import_diagnostics["reference_errors"] = int(
+                self._last_import_diagnostics["reference_errors"] or 0
+            ) + len(unresolved_rows)
+            if not self._last_import_diagnostics.get("reason"):
+                sample_class_ref, sample_model, sample_tid, _, sample_refs = unresolved_rows[0]
+                unresolved_targets = ", ".join(
+                    f"{field_name}->{target_tid}" for field_name, _, target_tid in sample_refs
+                )
+                self._last_import_diagnostics["reason"] = (
+                    f"unresolved forward references for {sample_class_ref} tid={sample_tid}: {unresolved_targets}"
+                )
+            if not continue_on_error:
                 self._last_import_diagnostics["mode"] = "failed_fast"
-                raise
+                raise RuntimeError(self._last_import_diagnostics["reason"])
 
         if not imported_counts:
             upsert_errors = int(self._last_import_diagnostics.get("upsert_errors") or 0)
@@ -574,6 +620,11 @@ class Ili2PyBridge:
             if hasattr(queryset_provider, "get_bid"):
                 return str(queryset_provider.get_bid(model_spec.model, obj))
         return f"{model_spec.model_name}.{model_spec.topic_name}"
+
+    def _xtf_model_namespace(self, model_name: str, *, flavor: _XtfFlavor) -> str:
+        if flavor.transfer_name == "transfer":
+            return f"http://www.interlis.ch/xtf/2.4/{model_name}"
+        return flavor.transfer_namespace
 
     def _build_schema(self, models: list[type[Any]], *, flavor: _XtfFlavor = XTF_FLAVOR_23) -> _Schema:
         grouped: dict[tuple[str, str], list[_ModelSpec]] = {}
@@ -1001,14 +1052,15 @@ class Ili2PyBridge:
         *,
         flavor: _XtfFlavor,
     ) -> dict[tuple[str, str], Any]:
-        record_spec_by_element_name: dict[str, dict[str, _GeometryFieldSpec]] = {}
+        record_spec_by_element_name: dict[tuple[str | None, str], dict[str, _GeometryFieldSpec]] = {}
         for topic in schema.topics:
             for model_spec in topic.model_specs:
                 geometry_specs = specs_by_model.get(model_spec.model, [])
                 if not geometry_specs:
                     continue
                 record_element_name = (
-                    model_spec.class_name if flavor.transfer_name == "transfer" else f"{model_spec.model_name}.{model_spec.topic_name}.{model_spec.class_name}"
+                    self._xtf_model_namespace(model_spec.model_name, flavor=flavor),
+                    model_spec.class_name,
                 )
                 record_spec_by_element_name[record_element_name] = {
                     spec.xml_name: spec for spec in geometry_specs
@@ -1029,8 +1081,8 @@ class Ili2PyBridge:
                 parent = parent_map.get(id(child))
                 if parent is None:
                     continue
-                _, parent_name = _split_tag(str(parent.tag))
-                spec_by_xml_name = record_spec_by_element_name.get(parent_name)
+                parent_namespace, parent_name = _split_tag(str(parent.tag))
+                spec_by_xml_name = record_spec_by_element_name.get((parent_namespace, parent_name))
                 if spec_by_xml_name is None:
                     continue
                 geometry_spec = spec_by_xml_name.get(child_name)
@@ -1040,6 +1092,59 @@ class Ili2PyBridge:
                 if geometry_value is None:
                     continue
                 values[(tid, child_name)] = geometry_value
+        return values
+
+    def _extract_reference_values(
+        self,
+        xtf_path: Path,
+        schema: _Schema,
+        *,
+        flavor: _XtfFlavor,
+    ) -> dict[tuple[str, str], str]:
+        record_spec_by_element_name: dict[tuple[str | None, str], dict[str, _MetaFieldSpec]] = {}
+        for topic in schema.topics:
+            for model_spec in topic.model_specs:
+                ref_specs = [spec for spec in model_spec.fields if spec.kind == "ref"]
+                if not ref_specs:
+                    continue
+                record_element_name = (
+                    self._xtf_model_namespace(model_spec.model_name, flavor=flavor),
+                    model_spec.class_name,
+                )
+                record_spec_by_element_name[record_element_name] = {spec.xml_name: spec for spec in ref_specs}
+
+        if not record_spec_by_element_name:
+            return {}
+
+        values: dict[tuple[str, str], str] = {}
+        root = ET.parse(str(xtf_path)).getroot()
+        parent_map: dict[int, ET.Element] = {id(child): parent for parent in root.iter() for child in list(parent)}
+        for element in root.iter():
+            tid = self._extract_tid(element)
+            if not tid:
+                continue
+            for child in list(element):
+                _, child_name = _split_tag(str(child.tag))
+                parent = parent_map.get(id(child))
+                if parent is None:
+                    continue
+                parent_namespace, parent_name = _split_tag(str(parent.tag))
+                spec_by_xml_name = record_spec_by_element_name.get((parent_namespace, parent_name))
+                if spec_by_xml_name is None:
+                    continue
+                ref_spec = spec_by_xml_name.get(child_name)
+                if ref_spec is None:
+                    continue
+                ref_tid = None
+                for attr_name, attr_value in child.attrib.items():
+                    _, local_name = _split_tag(str(attr_name))
+                    if local_name.lower() == "ref":
+                        value = str(attr_value).strip()
+                        ref_tid = value or None
+                        break
+                if ref_tid is None:
+                    continue
+                values[(tid, child_name)] = ref_tid
         return values
 
     def _extract_tid(self, element: ET.Element) -> str | None:
@@ -1056,13 +1161,35 @@ class Ili2PyBridge:
         geometry_spec: _GeometryFieldSpec,
     ) -> Any | None:
         try:
-            from django.contrib.gis.geos import LinearRing, MultiPolygon, Polygon
+            from django.contrib.gis.geos import LinearRing, LineString, MultiLineString, MultiPoint, MultiPolygon, Point, Polygon
             try:
                 from django.contrib.gis.geos import CurvePolygon
             except Exception:
                 CurvePolygon = None
         except Exception:
             return None
+
+        def _coord_value(coord_element: ET.Element) -> tuple[float, float] | None:
+            c1 = None
+            c2 = None
+            for axis in coord_element:
+                _, axis_name = _split_tag(str(axis.tag))
+                if axis_name == "c1" and axis.text is not None:
+                    c1 = float(axis.text)
+                elif axis_name == "c2" and axis.text is not None:
+                    c2 = float(axis.text)
+            if c1 is None or c2 is None:
+                return None
+            return c1, c2
+
+        point_coords: list[tuple[float, float]] = []
+        for element in geometry_element:
+            _, name = _split_tag(str(element.tag))
+            if name != "coord":
+                continue
+            coord = _coord_value(element)
+            if coord is not None:
+                point_coords.append(coord)
 
         surface = None
         for element in geometry_element.iter():
@@ -1071,6 +1198,66 @@ class Ili2PyBridge:
                 surface = element
                 break
         if surface is None:
+            internal_type = (geometry_spec.internal_type or "").upper()
+            geom_type = (geometry_spec.geom_type or "").upper()
+            point_like = internal_type in {"POINTFIELD", "MULTIPOINTFIELD"} or "POINT" in geom_type
+            line_like = internal_type in {"LINESTRINGFIELD", "MULTILINESTRINGFIELD"} or "LINESTRING" in geom_type or "MULTILINESTRING" in geom_type
+
+            if point_like:
+                if not point_coords:
+                    for element in geometry_element.iter():
+                        _, name = _split_tag(str(element.tag))
+                        if name != "coord":
+                            continue
+                        coord = _coord_value(element)
+                        if coord is not None:
+                            point_coords.append(coord)
+                            break
+                if not point_coords:
+                    return None
+
+                if internal_type == "MULTIPOINTFIELD" or "MULTIPOINT" in geom_type:
+                    geometry = MultiPoint([Point(x, y) for x, y in point_coords])
+                else:
+                    x, y = point_coords[0]
+                    geometry = Point(x, y)
+
+                if geometry_spec.srid is not None:
+                    geometry.srid = geometry_spec.srid
+                return geometry
+
+            if line_like:
+                polyline_coords: list[list[tuple[float, float]]] = []
+                for element in geometry_element.iter():
+                    _, name = _split_tag(str(element.tag))
+                    if name != "polyline":
+                        continue
+                    coords: list[tuple[float, float]] = []
+                    for coord_element in element:
+                        _, coord_name = _split_tag(str(coord_element.tag))
+                        if coord_name != "coord":
+                            continue
+                        coord = _coord_value(coord_element)
+                        if coord is not None:
+                            coords.append(coord)
+                    if coords:
+                        polyline_coords.append(coords)
+
+                if not polyline_coords:
+                    return None
+
+                if internal_type == "MULTILINESTRINGFIELD" or "MULTILINESTRING" in geom_type:
+                    geometry = MultiLineString([LineString(coords) for coords in polyline_coords if len(coords) >= 2])
+                else:
+                    first_coords = next((coords for coords in polyline_coords if len(coords) >= 2), None)
+                    if first_coords is None:
+                        return None
+                    geometry = LineString(first_coords)
+
+                if geometry_spec.srid is not None:
+                    geometry.srid = geometry_spec.srid
+                return geometry
+
             return None
 
         exterior = None
@@ -1096,17 +1283,10 @@ class Ili2PyBridge:
             _, coord_name = _split_tag(str(coord.tag))
             if coord_name != "coord":
                 continue
-            c1 = None
-            c2 = None
-            for axis in coord:
-                _, axis_name = _split_tag(str(axis.tag))
-                if axis_name == "c1" and axis.text is not None:
-                    c1 = float(axis.text)
-                elif axis_name == "c2" and axis.text is not None:
-                    c2 = float(axis.text)
-            if c1 is None or c2 is None:
+            coord_value = _coord_value(coord)
+            if coord_value is None:
                 continue
-            coords.append((c1, c2))
+            coords.append(coord_value)
 
         if len(coords) < 3:
             return None
@@ -1141,6 +1321,12 @@ class Ili2PyBridge:
         if hasattr(meta, "get_fields"):
             return [field_obj for field_obj in meta.get_fields() if getattr(field_obj, "name", None)]
         return list(getattr(meta, "fields", []))
+
+    def _has_tid_field(self, model: type[Any]) -> bool:
+        for field_obj in self._iter_model_fields(model):
+            if getattr(field_obj, "name", None) == "tid":
+                return True
+        return False
 
     def _field_kind(self, field_obj: Any) -> tuple[str, type[Any], type[Any] | None]:
         internal_type = None
