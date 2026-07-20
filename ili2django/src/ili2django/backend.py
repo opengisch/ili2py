@@ -146,7 +146,6 @@ class Ili2PyBackend:
             values.update(self._geometry_values(binding, record, tid=tid))
             values.update(self._child_values(binding, record, tid=tid))
             self._apply_known_model_fallbacks(binding, values)
-            self._apply_required_geometry_defaults(binding, values)
             pending_refs = self._reference_values(binding, record)
 
             if pending_refs:
@@ -427,8 +426,15 @@ class Ili2PyBackend:
                 if not rings:
                     return None
                 if self._is_curve_polygon_field(field_obj) and CurvePolygon is not None:
-                    shell = LinearRing(rings[0])
-                    holes = [LinearRing(ring) for ring in rings[1:] if len(ring) >= 4]
+                    shell_ring = self._ensure_closed_ring(rings[0])
+                    if len(shell_ring) < 4:
+                        return None
+                    shell = LinearRing(shell_ring)
+                    holes = []
+                    for ring in rings[1:]:
+                        closed_hole = self._ensure_closed_ring(ring)
+                        if len(closed_hole) >= 4:
+                            holes.append(LinearRing(closed_hole))
                     try:
                         g = CurvePolygon(shell, *holes)
                     except Exception:
@@ -508,6 +514,13 @@ class Ili2PyBackend:
         if isinstance(srid, int):
             geom.srid = srid
         return geom
+
+    def _ensure_closed_ring(self, ring: list[tuple[float, float]]) -> list[tuple[float, float]]:
+        if not ring:
+            return ring
+        if ring[0] == ring[-1]:
+            return ring
+        return [*ring, ring[0]]
 
     def _is_curve_polygon_field(self, field_obj: Any | None) -> bool:
         if field_obj is None or not hasattr(field_obj, "get_internal_type"):
@@ -675,76 +688,6 @@ class Ili2PyBackend:
         if values.get("lokalisation_name") is None and values.get("strassenstueck") is not None:
             # TODO: Remove this once LokalisationName is mapped directly from source wrappers.
             values["lokalisation_name"] = values["strassenstueck"]
-
-    def _apply_required_geometry_defaults(self, binding: _ModelBinding, values: dict[str, Any]) -> None:
-        for field_name, field_obj in binding.field_objects.items():
-            if not self._is_geometry_field(field_obj):
-                continue
-            if getattr(field_obj, "null", True):
-                continue
-            if values.get(field_name) is not None:
-                continue
-
-            empty_geometry = self._empty_geometry_for_field(field_obj)
-            if empty_geometry is not None:
-                # TODO: Replace empty-geometry fallback with complete source mapping for required fields.
-                values[field_name] = empty_geometry
-
-    def _empty_geometry_for_field(self, field_obj: Any | None) -> Any | None:
-        internal = self._field_internal_type(field_obj)
-        srid = getattr(field_obj, "srid", None)
-        try:
-            from django.contrib.gis.geos import (
-                CircularString,
-                CompoundCurve,
-                CurvePolygon,
-                GeometryCollection,
-                LineString,
-                MultiCurve,
-                MultiLineString,
-                MultiPoint,
-                MultiPolygon,
-                MultiSurface,
-                Point,
-                Polygon,
-            )
-        except Exception:
-            return None
-
-        geom = None
-        try:
-            if internal == "pointfield":
-                geom = Point()
-            elif internal == "linestringfield":
-                geom = LineString()
-            elif internal == "circularstringfield":
-                geom = CircularString()
-            elif internal == "compoundcurvefield":
-                geom = CompoundCurve()
-            elif internal == "polygonfield":
-                geom = Polygon()
-            elif internal == "curvepolygonfield":
-                geom = CurvePolygon()
-            elif internal == "multipointfield":
-                geom = MultiPoint()
-            elif internal == "multilinestringfield":
-                geom = MultiLineString()
-            elif internal == "multicurvefield":
-                geom = MultiCurve()
-            elif internal == "multipolygonfield":
-                geom = MultiPolygon()
-            elif internal == "multisurfacefield":
-                geom = MultiSurface()
-            elif internal == "geometrycollectionfield":
-                geom = GeometryCollection()
-        except Exception:
-            return None
-
-        if geom is None:
-            return None
-        if isinstance(srid, int):
-            geom.srid = srid
-        return geom
 
     def _upsert_row(
         self,
