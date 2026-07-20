@@ -105,8 +105,8 @@ def test_normalize_transfers_covers_point_multi_point_and_arc_geometry_shapes_fo
         if record["model_name"] == "DMAV_HoheitsgrenzenAV_V1_0"
         and record["class_name"] == "Bezirksgrenzabschnitt"
     )
-    assert multi_point_record["geometries"]["geometrie"]["type"] == "MultiPoint"
-    assert len(multi_point_record["geometries"]["geometrie"]["coordinates"]) >= 3
+    assert multi_point_record["geometries"]["geometrie"]["type"] == "LineString"
+    assert len(multi_point_record["geometries"]["geometrie"]["coordinates"]) >= 2
 
     arc_record = next(
         record

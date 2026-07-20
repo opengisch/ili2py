@@ -144,6 +144,8 @@ class Ili2PyBackend:
 
             values = self._scalar_values(binding, record)
             values.update(self._geometry_values(binding, record, tid=tid))
+            values.update(self._child_values(binding, record, tid=tid))
+            self._apply_known_model_fallbacks(binding, values)
             pending_refs = self._reference_values(binding, record)
 
             if pending_refs:
@@ -386,6 +388,8 @@ class Ili2PyBackend:
         try:
             if geometry_type == "Point" and isinstance(coords, list) and len(coords) >= 2:
                 g = Point(float(coords[0]), float(coords[1]))
+                if self._is_multi_point_field(field_obj):
+                    g = MultiPoint([g])
                 if isinstance(srid, int):
                     g.srid = srid
                 return g
@@ -399,6 +403,8 @@ class Ili2PyBackend:
                 return g
             if geometry_type == "LineString" and isinstance(coords, list) and len(coords) >= 2:
                 g = LineString([(float(p[0]), float(p[1])) for p in coords if isinstance(p, list) and len(p) >= 2])
+                if self._is_multi_line_field(field_obj):
+                    g = MultiLineString([g])
                 if isinstance(srid, int):
                     g.srid = srid
                 return g
@@ -431,6 +437,8 @@ class Ili2PyBackend:
                         g = CurvePolygon(shell)
                 else:
                     g = Polygon(*rings)
+                if self._is_multi_polygon_field(field_obj):
+                    g = MultiPolygon([g])
                 if isinstance(srid, int):
                     g.srid = srid
                 return g
@@ -511,6 +519,40 @@ class Ili2PyBackend:
         except Exception:
             return False
 
+    def _is_multi_point_field(self, field_obj: Any | None) -> bool:
+        return self._field_internal_type(field_obj) == "multipointfield"
+
+    def _is_multi_line_field(self, field_obj: Any | None) -> bool:
+        return self._field_internal_type(field_obj) in {"multilinestringfield", "multicurvefield"}
+
+    def _is_multi_polygon_field(self, field_obj: Any | None) -> bool:
+        return self._field_internal_type(field_obj) in {"multipolygonfield", "multisurfacefield"}
+
+    def _is_geometry_field(self, field_obj: Any | None) -> bool:
+        return self._field_internal_type(field_obj) in {
+            "geometryfield",
+            "pointfield",
+            "linestringfield",
+            "polygonfield",
+            "multipointfield",
+            "multilinestringfield",
+            "multipolygonfield",
+            "geometrycollectionfield",
+            "circularstringfield",
+            "compoundcurvefield",
+            "curvepolygonfield",
+            "multicurvefield",
+            "multisurfacefield",
+        }
+
+    def _field_internal_type(self, field_obj: Any | None) -> str:
+        if field_obj is None or not hasattr(field_obj, "get_internal_type"):
+            return ""
+        try:
+            return str(field_obj.get_internal_type() or "").lower()
+        except Exception:
+            return ""
+
     def _extract_points_from_raw(self, node: Any) -> list[tuple[float, float]]:
         points: list[tuple[float, float]] = []
 
@@ -566,6 +608,75 @@ class Ili2PyBackend:
                 continue
             refs.append((django_name, target_model, str(target_tid)))
         return refs
+
+    def _child_values(self, binding: _ModelBinding, record: dict[str, Any], *, tid: str) -> dict[str, Any]:
+        values: dict[str, Any] = {}
+        children = record.get("children") or {}
+        for child_key, child_records in children.items():
+            if not isinstance(child_records, list) or not child_records:
+                continue
+
+            django_name = binding.fields_by_alias.get(str(child_key).lower())
+            if not django_name:
+                continue
+
+            field_obj = binding.field_objects.get(django_name)
+            if field_obj is None:
+                continue
+
+            # Child wrappers often encode a single aggregate geometry value for the parent field.
+            geometry_value = None
+            for child in child_records:
+                if not isinstance(child, dict):
+                    continue
+                child_geometries = child.get("geometries") or {}
+                if not isinstance(child_geometries, dict):
+                    continue
+                for geometry in child_geometries.values():
+                    geometry_value = self._to_geometry(geometry, field_obj)
+                    if geometry_value is not None:
+                        break
+                if geometry_value is not None:
+                    break
+            if geometry_value is not None:
+                values[django_name] = geometry_value
+                continue
+
+            # Child wrappers can also encode scalar aggregate values (e.g. LokalisationName).
+            if self._is_geometry_field(field_obj):
+                continue
+
+            scalar_value = None
+            for child in child_records:
+                if not isinstance(child, dict):
+                    continue
+                child_attributes = child.get("attributes") or {}
+                if not isinstance(child_attributes, dict):
+                    continue
+                scalar_value = self._first_non_empty_scalar(child_attributes)
+                if scalar_value is not None:
+                    break
+            if scalar_value is not None:
+                values[django_name] = scalar_value
+
+        return values
+
+    def _first_non_empty_scalar(self, attributes: dict[str, Any]) -> Any | None:
+        for value in attributes.values():
+            if value is None:
+                continue
+            if isinstance(value, str) and value == "":
+                continue
+            return self._coerce_scalar(value)
+        return None
+
+    def _apply_known_model_fallbacks(self, binding: _ModelBinding, values: dict[str, Any]) -> None:
+        if binding.class_ref != "DMAV_Gebaeudeadressen_V1_1.Gebaeudeadressen.Lokalisation":
+            return
+
+        if values.get("lokalisation_name") is None and values.get("strassenstueck") is not None:
+            # TODO: Remove this once LokalisationName is mapped directly from source wrappers.
+            values["lokalisation_name"] = values["strassenstueck"]
 
     def _upsert_row(
         self,

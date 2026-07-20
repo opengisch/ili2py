@@ -180,6 +180,20 @@ def _normalize_geometry_value(value: AnyElement) -> NormalizedGeometry:
     if geometry_node is None:
         return {"type": "RawGeometry", "xml": _geometry_wrapper_to_dict(value)}
 
+    node_tag_name = _local_name(geometry_node.qname)
+    if node_tag_name == "coord":
+        point = _coord_to_position(geometry_node)
+        if point:
+            return {"type": "Point", "coordinates": point}
+    if node_tag_name == "polyline":
+        line = _polyline_to_coordinates(geometry_node)
+        if line:
+            return {"type": "LineString", "coordinates": line}
+    if node_tag_name == "surface":
+        polygon = _surface_to_coordinates(geometry_node)
+        if polygon:
+            return {"type": "Polygon", "coordinates": polygon}
+
     direct_children = _direct_geometry_children(geometry_node)
     if any(_local_name(child.qname) in {"arc", "curve", "circularstring", "compoundcurve"} for child in direct_children):
         return {"type": "RawGeometry", "xml": _geometry_wrapper_to_dict(value)}
