@@ -77,7 +77,7 @@ class ModelDataGeneratorBase:
     def _classes_by_tid(self, basket):
         return {getattr(element, "tid", None): element for element in self._elements_of_type(basket, "Class")}
 
-    def _ordered_attribute_refs(self, basket, class_tid: str):
+    def _ordered_transfer_element_refs(self, basket, class_tid: str):
         refs: list[tuple[int, str]] = []
         for transfer_element in self._elements_of_type(basket, "TransferElement"):
             if getattr(getattr(transfer_element, "transfer_class", None), "ref", None) != class_tid:
@@ -94,25 +94,59 @@ class ModelDataGeneratorBase:
         refs.sort(key=lambda item: item[0])
         return [ref for _, ref in refs]
 
-    def _ordered_attributes(self, basket, class_tid: str):
+    def _ordered_field_elements(self, basket, class_tid: str):
         attr_by_tid = {
             getattr(attr, "tid", None): attr
             for attr in self._attributes_for_class(basket, class_tid)
         }
-        ordered_attr_refs = self._ordered_attribute_refs(basket, class_tid)
-        ordered_attrs = [attr_by_tid[ref] for ref in ordered_attr_refs if ref in attr_by_tid]
-        if not ordered_attrs:
-            ordered_attrs = list(attr_by_tid.values())
-        return ordered_attrs
+        role_by_tid = {
+            getattr(role, "tid", None): role
+            for role in self._elements_of_type(basket, "Role")
+        }
+        ordered_refs = self._ordered_transfer_element_refs(basket, class_tid)
+
+        ordered_elements = []
+        for ref in ordered_refs:
+            if ref in attr_by_tid:
+                ordered_elements.append(attr_by_tid[ref])
+                continue
+            if ref in role_by_tid:
+                ordered_elements.append(role_by_tid[ref])
+
+        if not ordered_elements:
+            ordered_elements = list(attr_by_tid.values())
+        return ordered_elements
 
     def _attribute_field_specs(self, basket, class_tid: str):
         text_types = self._types_by_tid(basket, "TextType")
         num_types = self._types_by_tid(basket, "NumType")
         multi_value_types = self._types_by_tid(basket, "MultiValue")
+        ref_types = self._types_by_tid(basket, "ReferenceType")
+        role_types = self._types_by_tid(basket, "Role")
+        object_types = self._types_by_tid(basket, "ObjectType")
+        class_ref_types = self._types_by_tid(basket, "ClassRefType")
         field_specs = []
-        for attr_or_param_item in self._ordered_attributes(basket, class_tid):
+        for class_item in self._ordered_field_elements(basket, class_tid):
+            item_type_name = type(class_item).__name__
+            if item_type_name == "Role":
+                role_name = getattr(class_item, "name", None)
+                if role_name:
+                    field_specs.append(("ref", role_name.lower(), role_name, None, False, class_item))
+                continue
+            if item_type_name != "AttrOrParam":
+                continue
+
+            attr_or_param_item = class_item
             type_ref = self._ref_value(getattr(attr_or_param_item, "type_value", None))
-            type_item = text_types.get(type_ref) or num_types.get(type_ref) or multi_value_types.get(type_ref)
+            type_item = (
+                text_types.get(type_ref)
+                or num_types.get(type_ref)
+                or multi_value_types.get(type_ref)
+                or ref_types.get(type_ref)
+                or role_types.get(type_ref)
+                or object_types.get(type_ref)
+                or class_ref_types.get(type_ref)
+            )
             if type_item is None:
                 continue
             mandatory = bool(getattr(type_item, "mandatory", False))
@@ -130,6 +164,9 @@ class ModelDataGeneratorBase:
                 continue
             if type_name == "MultiValue":
                 field_specs.append(("multivalue", attr_name, xml_name, None, mandatory, type_item))
+                continue
+            if type_name in {"ReferenceType", "Role", "ObjectType", "ClassRefType"}:
+                field_specs.append(("ref", attr_name, xml_name, None, mandatory, type_item))
         return field_specs
 
     def find_model_by_name(self, model_name: str) -> ModelDataType:
@@ -149,6 +186,7 @@ class ModelDataGeneratorBase:
         tid_name: str,
         tid_namespace: str | None,
         xml_namespace: str | None,
+        ref_python_type: Any | None = None,
     ):
         tid_metadata = {"name": tid_name, "type": "Attribute"}
         if tid_namespace is not None:
@@ -157,8 +195,12 @@ class ModelDataGeneratorBase:
             ("tid", Optional[str], field(default=None, metadata=tid_metadata))
         ]
         for field_kind, attr_name, xml_name, python_type, mandatory, _type_item in self._attribute_field_specs(basket, class_tid):
-            if field_kind != "scalar":
+            if field_kind not in {"scalar", "ref"}:
                 continue
+            if field_kind == "ref":
+                if ref_python_type is None:
+                    continue
+                python_type = ref_python_type
             metadata = {"name": xml_name, "type": "Element", "required": mandatory}
             if xml_namespace is not None:
                 metadata["namespace"] = xml_namespace

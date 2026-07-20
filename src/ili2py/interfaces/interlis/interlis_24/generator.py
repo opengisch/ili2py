@@ -5,6 +5,14 @@ from ili2py.interfaces.interlis.common_generator import ModelDataGeneratorBase
 from ili2py.interfaces.interlis.interlis_24 import Transfer, namespace_map
 
 
+@dataclass(kw_only=True)
+class _RefElement24:
+    class Meta:
+        namespace = namespace_map["ili"]
+
+    ref: str | None = field(default=None, metadata={"name": "ref", "type": "Attribute", "namespace": namespace_map["ili"]})
+
+
 class DataClassGenerator(ModelDataGeneratorBase):
 
     def __init__(self, meta_model):
@@ -27,6 +35,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
             tid_name="tid",
             tid_namespace=namespace_map["ili"],
             xml_namespace=model_namespace,
+            ref_python_type=_RefElement24,
         )
 
         for field_kind, attr_name, xml_name, _python_type, mandatory, type_item in self._attribute_field_specs(model_data, class_tid):

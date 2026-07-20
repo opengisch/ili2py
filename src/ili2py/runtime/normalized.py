@@ -55,7 +55,7 @@ def normalize_transfer(model_name: str, transfer: Any) -> list[NormalizedRecord]
                         "class_name": type(record).__name__,
                         "tid": getattr(record, "tid", None),
                         "attributes": _scalar_attributes(record),
-                        "references": {},
+                        "references": _reference_map(record),
                         "geometries": {},
                         "children": _child_record_map(record),
                     }
@@ -85,6 +85,8 @@ def _child_records(value: Any) -> list[NormalizedRecord]:
         for item in value:
             child_records.extend(_child_records(item))
         return child_records
+    if _is_reference_value(value):
+        return []
     if is_dataclass(value):
         wrapper_items = getattr(value, "items", None)
         if isinstance(wrapper_items, list):
@@ -98,7 +100,7 @@ def _normalize_child_record(record: Any) -> NormalizedRecord:
         "class_name": type(record).__name__,
         "tid": getattr(record, "tid", None),
         "attributes": _scalar_attributes(record),
-        "references": {},
+        "references": _reference_map(record),
         "geometries": {},
         "children": _child_record_map(record),
     }
@@ -119,3 +121,29 @@ def _child_record_map(record: Any) -> dict[str, list[NormalizedRecord]]:
 
 def _is_scalar_value(value: Any) -> bool:
     return value is None or isinstance(value, (str, int, float, bool, Decimal))
+
+
+def _is_reference_value(value: Any) -> bool:
+    if not is_dataclass(value):
+        return False
+    if not hasattr(value, "ref"):
+        return False
+    ref_value = getattr(value, "ref", None)
+    return ref_value is None or isinstance(ref_value, str)
+
+
+def _reference_map(record: Any) -> dict[str, str]:
+    if not is_dataclass(record):
+        return {}
+
+    references: dict[str, str] = {}
+    for record_field in fields(record):
+        if record_field.name == "tid":
+            continue
+        value = getattr(record, record_field.name, None)
+        if not _is_reference_value(value):
+            continue
+        ref_value = getattr(value, "ref", None)
+        if ref_value:
+            references[record_field.name] = ref_value
+    return references
