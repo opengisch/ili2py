@@ -117,3 +117,15 @@ def test_normalize_transfers_covers_point_multi_point_and_arc_geometry_shapes_fo
     )
     assert arc_record["geometries"]["geometrie"]["type"] == "Polygon"
     assert _raw_xtf_record_has_arc(xtf_path, arc_record["tid"])
+
+    bodenbedeckung_arc_heavy = next(
+        record
+        for record in normalized_records
+        if record["model_name"] == "DMAV_Bodenbedeckung_V1_1"
+        and record["class_name"] == "Bodenbedeckung"
+        and record["tid"] == "6167d67a-2e45-45ce-8983-7269534f1a36"
+    )
+    assert _raw_xtf_record_has_arc(xtf_path, bodenbedeckung_arc_heavy["tid"])
+    assert bodenbedeckung_arc_heavy["geometries"]["geometrie"]["type"] == "Polygon"
+    assert len(bodenbedeckung_arc_heavy["geometries"]["geometrie"]["coordinates"]) >= 1
+    assert len(bodenbedeckung_arc_heavy["geometries"]["geometrie"]["coordinates"][0]) >= 3

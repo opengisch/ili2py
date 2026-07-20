@@ -287,11 +287,35 @@ def _direct_geometry_children(node: AnyElement) -> list[AnyElement]:
 
 def _polyline_to_coordinates(polyline: AnyElement) -> list[list[NormalizedScalar]]:
     coordinates: list[list[NormalizedScalar]] = []
-    for coord in _iter_named(polyline, "coord"):
-        point = _coord_to_position(coord)
-        if point:
-            coordinates.append(point)
+    for child in getattr(polyline, "children", []) or []:
+        if not isinstance(child, AnyElement):
+            continue
+        local_name = _local_name(child.qname)
+        if local_name == "coord":
+            point = _coord_to_position(child)
+            if point:
+                coordinates.append(point)
+        elif local_name == "arc":
+            # INTERLIS arc uses c1/c2 as the segment endpoint; include it in-order
+            # so curve-dominant polylines keep a usable vertex sequence.
+            point = _arc_endpoint_to_position(child)
+            if point:
+                coordinates.append(point)
     return coordinates
+
+
+def _arc_endpoint_to_position(arc: AnyElement) -> list[NormalizedScalar]:
+    c1 = _child_text(arc, "c1")
+    c2 = _child_text(arc, "c2")
+    c3 = _child_text(arc, "c3")
+
+    if c1 is None or c2 is None:
+        return []
+
+    pos: list[NormalizedScalar] = [_parse_number(c1), _parse_number(c2)]
+    if c3 is not None:
+        pos.append(_parse_number(c3))
+    return pos
 
 
 def _surface_to_coordinates(surface: AnyElement) -> list[list[list[NormalizedScalar]]]:
