@@ -1,5 +1,6 @@
 from pathlib import Path
 import tempfile
+import xml.etree.ElementTree as ET
 import warnings
 
 from xsdata.exceptions import ConverterWarning
@@ -9,6 +10,9 @@ from xsdata.formats.dataclass.serializers.config import SerializerConfig
 from ili2py.readers.interlis_24.ilismeta16.xsdata import Imd16Reader
 from ili2py.readers.interlis_24.xtf.xsdata import Reader
 from ili2py.runtime.normalized import normalize_transfer
+
+
+GEOM_NS = "http://www.interlis.ch/geometry/1.0"
 
 
 def test_reader_parses_dmav_xtf_without_converter_warnings():
@@ -63,3 +67,39 @@ def test_reader_round_trip_preserves_normalized_records_for_dmav_model():
     round_trip_records = normalize_transfer(model_name, round_trip_transfer)
 
     assert round_trip_records == original_records
+
+
+def test_reader_parses_dotted_topic_class_elements_for_bodenbedeckung_model():
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "DMAVTYM_Alles_V1_1.imd"
+    xtf_path = repo_root.parent / "data" / "DMAVTYM_Alles_V1_1.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["DMAV_Bodenbedeckung_V1_1"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Bodenbedeckung")
+
+    assert len(getattr(basket, "bodenbedeckung", [])) > 0
+
+
+def test_reader_export_preserves_total_arc_count_for_dmav_xtf():
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "DMAVTYM_Alles_V1_1.imd"
+    xtf_path = repo_root.parent / "data" / "DMAVTYM_Alles_V1_1.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    serializer = XmlSerializer(config=SerializerConfig(indent="  ", xml_declaration=True))
+
+    source_arc_count = sum(1 for e in ET.parse(str(xtf_path)).getroot().iter() if e.tag == f"{{{GEOM_NS}}}arc")
+
+    exported_arc_count = 0
+    for transfer in result.values():
+        exported_root = ET.fromstring(serializer.render(transfer))
+        exported_arc_count += sum(1 for e in exported_root.iter() if e.tag == f"{{{GEOM_NS}}}arc")
+
+    assert exported_arc_count == source_arc_count
