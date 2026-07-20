@@ -63,6 +63,9 @@ class Ili2PyBridge:
             continue_on_error=continue_on_error,
         )
 
+    def load_xtf(self, xtf_path: str) -> None:
+        self._backend.load_xtf(xtf_path)
+
     def export_xtf(self, xtf_path: str, *, queryset_provider: Any | None = None) -> None:
         self._backend.export_xtf(xtf_path, queryset_provider=queryset_provider)
 

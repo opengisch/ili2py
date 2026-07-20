@@ -224,6 +224,15 @@ class Ili2PyBackend:
 
         return imported_counts
 
+    def load_xtf(self, xtf_path: str) -> None:
+        xtf = Path(xtf_path)
+        if not xtf.exists():
+            raise FileNotFoundError(f"XTF file not found: {xtf_path}")
+
+        metamodel = self._resolve_metamodel(xtf)
+        reader = Reader(metamodel, fail_on_unknown_properties=False)
+        self._last_transfers = reader.read(str(xtf))
+
     def export_xtf(self, xtf_path: str, *, queryset_provider: Any | None = None) -> None:
         target = Path(xtf_path)
         target.parent.mkdir(parents=True, exist_ok=True)
