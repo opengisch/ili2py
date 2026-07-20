@@ -1244,6 +1244,20 @@ class Ili2PyBridge:
                         polyline_coords.append(coords)
 
                 if not polyline_coords:
+                    coords: list[tuple[float, float]] = []
+                    for element in geometry_element.iter():
+                        _, name = _split_tag(str(element.tag))
+                        if name != "coord":
+                            continue
+                        coord = _coord_value(element)
+                        if coord is not None:
+                            coords.append(coord)
+                    if coords:
+                        if len(coords) == 1:
+                            coords = [coords[0], coords[0]]
+                        polyline_coords.append(coords)
+
+                if not polyline_coords:
                     return None
 
                 if internal_type == "MULTILINESTRINGFIELD" or "MULTILINESTRING" in geom_type:

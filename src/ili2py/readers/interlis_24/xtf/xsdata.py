@@ -3,8 +3,8 @@ from typing import IO, AnyStr
 from xsdata.formats.dataclass.parsers import XmlParser
 from xsdata.formats.dataclass.parsers.config import ParserConfig
 
-from ili2py.interfaces.interlis.interlis_23 import TRANSFER
-from ili2py.interfaces.interlis.interlis_23.generator import DataClassGenerator
+from ili2py.interfaces.interlis.interlis_24 import Transfer
+from ili2py.interfaces.interlis.interlis_24.generator import DataClassGenerator
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
 from ili2py.readers.common.xtf import model_names_from_transfer
 
@@ -25,16 +25,10 @@ class Reader:
         self.meta_model = meta_model
 
     def read(self, input_xtf: str | IO[AnyStr]):
-        """
-        Parses an XTF XML file into the dataclass objects for further usage.
-
-        Args:
-            input_xtf: The path or the file object to read the imd16 from
-        """
-        # we preparse the XTF to find out what model we are handling
-        pre_xtf = self.parser.parse(input_xtf, TRANSFER)
+        pre_xtf = self.parser.parse(input_xtf, Transfer)
         xtf_data = {}
+        generator = DataClassGenerator(self.meta_model)
         for model_name in model_names_from_transfer(pre_xtf):
-            generated_dataclasses = DataClassGenerator(self.meta_model).generate(model_name)
+            generated_dataclasses = generator.generate(model_name)
             xtf_data[model_name] = self.parser.parse(input_xtf, generated_dataclasses)
         return xtf_data
