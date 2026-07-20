@@ -1,3 +1,4 @@
+from decimal import Decimal
 from dataclasses import field, make_dataclass
 from typing import Any, List, Optional
 
@@ -8,6 +9,16 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data imp
 
 
 class ModelDataGeneratorBase:
+
+    def _python_type_for_num_type(self, type_item):
+        numeric_bounds = [getattr(type_item, "min", None), getattr(type_item, "max", None)]
+        for bound in numeric_bounds:
+            if bound is None:
+                continue
+            bound_str = str(bound)
+            if any(token in bound_str.lower() for token in (".", "e")):
+                return Decimal
+        return int
 
     def __init__(self, meta_model: ImdTransfer):
         self.meta_model = meta_model
@@ -101,7 +112,11 @@ class ModelDataGeneratorBase:
             if type_item is None:
                 continue
             mandatory = bool(getattr(type_item, "mandatory", False))
-            python_type: Any = str if type(type_item).__name__ == "TextType" else int
+            python_type: Any = (
+                str
+                if type(type_item).__name__ == "TextType"
+                else self._python_type_for_num_type(type_item)
+            )
             attr_name = getattr(attr_or_param_item, "name", "").lower()
             xml_name = getattr(attr_or_param_item, "name", None)
             if not attr_name or not xml_name:
