@@ -121,6 +121,8 @@ class ModelDataGeneratorBase:
         text_types = self._types_by_tid(basket, "TextType")
         num_types = self._types_by_tid(basket, "NumType")
         multi_value_types = self._types_by_tid(basket, "MultiValue")
+        coord_types = self._types_by_tid(basket, "CoordType")
+        line_types = self._types_by_tid(basket, "LineType")
         ref_types = self._types_by_tid(basket, "ReferenceType")
         role_types = self._types_by_tid(basket, "Role")
         object_types = self._types_by_tid(basket, "ObjectType")
@@ -142,6 +144,8 @@ class ModelDataGeneratorBase:
                 text_types.get(type_ref)
                 or num_types.get(type_ref)
                 or multi_value_types.get(type_ref)
+                or coord_types.get(type_ref)
+                or line_types.get(type_ref)
                 or ref_types.get(type_ref)
                 or role_types.get(type_ref)
                 or object_types.get(type_ref)
@@ -165,6 +169,9 @@ class ModelDataGeneratorBase:
             if type_name == "MultiValue":
                 field_specs.append(("multivalue", attr_name, xml_name, None, mandatory, type_item))
                 continue
+            if type_name in {"CoordType", "LineType"}:
+                field_specs.append(("geometry", attr_name, xml_name, None, mandatory, type_item))
+                continue
             if type_name in {"ReferenceType", "Role", "ObjectType", "ClassRefType"}:
                 field_specs.append(("ref", attr_name, xml_name, None, mandatory, type_item))
         return field_specs
@@ -187,6 +194,7 @@ class ModelDataGeneratorBase:
         tid_namespace: str | None,
         xml_namespace: str | None,
         ref_python_type: Any | None = None,
+        geometry_python_type: Any | None = None,
     ):
         tid_metadata = {"name": tid_name, "type": "Attribute"}
         if tid_namespace is not None:
@@ -195,12 +203,16 @@ class ModelDataGeneratorBase:
             ("tid", Optional[str], field(default=None, metadata=tid_metadata))
         ]
         for field_kind, attr_name, xml_name, python_type, mandatory, _type_item in self._attribute_field_specs(basket, class_tid):
-            if field_kind not in {"scalar", "ref"}:
+            if field_kind not in {"scalar", "ref", "geometry"}:
                 continue
             if field_kind == "ref":
                 if ref_python_type is None:
                     continue
                 python_type = ref_python_type
+            if field_kind == "geometry":
+                if geometry_python_type is None:
+                    continue
+                python_type = geometry_python_type
             metadata = {"name": xml_name, "type": "Element", "required": mandatory}
             if xml_namespace is not None:
                 metadata["namespace"] = xml_namespace

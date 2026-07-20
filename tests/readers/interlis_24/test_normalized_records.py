@@ -54,3 +54,6 @@ def test_normalize_transfers_returns_builtin_record_shapes_for_dmav_xtf():
     )
     assert toleranzstufe["attributes"]["nbident"] == "BE0200000115"
     assert "geometrie" not in toleranzstufe["attributes"]
+    assert toleranzstufe["geometries"]["geometrie"]["type"] == "Polygon"
+    assert len(toleranzstufe["geometries"]["geometrie"]["coordinates"]) >= 1
+    assert len(toleranzstufe["geometries"]["geometrie"]["coordinates"][0]) >= 3

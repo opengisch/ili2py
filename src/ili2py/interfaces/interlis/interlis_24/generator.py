@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 
 from ili2py.interfaces.interlis.common_generator import ModelDataGeneratorBase
 from ili2py.interfaces.interlis.interlis_24 import Transfer, namespace_map
+from xsdata.formats.dataclass.models.generics import AnyElement
 
 
 @dataclass(kw_only=True)
@@ -11,6 +12,11 @@ class _RefElement24:
         namespace = namespace_map["ili"]
 
     ref: str | None = field(default=None, metadata={"name": "ref", "type": "Attribute", "namespace": namespace_map["ili"]})
+
+
+@dataclass(kw_only=True)
+class _GeometryElement24:
+    content: list[object] = field(default_factory=list, metadata={"type": "Wildcard", "namespace": "##any"})
 
 
 class DataClassGenerator(ModelDataGeneratorBase):
@@ -36,6 +42,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
             tid_namespace=namespace_map["ili"],
             xml_namespace=model_namespace,
             ref_python_type=_RefElement24,
+            geometry_python_type=_GeometryElement24,
         )
 
         for field_kind, attr_name, xml_name, _python_type, mandatory, type_item in self._attribute_field_specs(model_data, class_tid):
