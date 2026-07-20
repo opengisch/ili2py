@@ -7,6 +7,78 @@ from ili2py.interfaces.interlis.interlis_24 import Transfer, namespace_map
 
 class DataClassGenerator(ModelDataGeneratorBase):
 
+    def __init__(self, meta_model):
+        super().__init__(meta_model)
+        self._structure_cache: dict[tuple[str, str], type[Any]] = {}
+
+    def _structure_record_type(self, model_data, class_tid: str, model_namespace: str):
+        cache_key = (class_tid, model_namespace)
+        cached = self._structure_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        class_item = self._classes_by_tid(model_data).get(class_tid)
+        if class_item is None:
+            raise LookupError(f"No class with tid {class_tid} could be found.")
+
+        record_fields = self._record_fields(
+            model_data,
+            class_tid,
+            tid_name="tid",
+            tid_namespace=namespace_map["ili"],
+            xml_namespace=model_namespace,
+        )
+
+        for field_kind, attr_name, xml_name, _python_type, mandatory, type_item in self._attribute_field_specs(model_data, class_tid):
+            if field_kind != "multivalue":
+                continue
+            base_ref = getattr(getattr(type_item, "base_type", None), "ref", None)
+            if not base_ref:
+                continue
+            if base_ref not in self._classes_by_tid(model_data):
+                continue
+            child_type = self._structure_record_type(model_data, base_ref, model_namespace)
+            wrapper_type = make_dataclass(
+                f"{class_item.name}_{xml_name}Wrapper",
+                [
+                    (
+                        "items",
+                        List[child_type],
+                        field(
+                            default_factory=list,
+                            metadata={
+                                "type": "Elements",
+                                "choices": (
+                                    {
+                                        "name": child_type.__name__,
+                                        "type": child_type,
+                                        "namespace": model_namespace,
+                                    },
+                                ),
+                            },
+                        ),
+                    )
+                ],
+                namespace={"Meta": type("Meta", (), {"namespace": model_namespace})},
+                kw_only=True,
+            )
+            metadata = {"name": xml_name, "type": "Element", "namespace": model_namespace, "required": mandatory}
+            field_def = field(metadata=metadata) if mandatory else field(default=None, metadata=metadata)
+            field_tuple = (attr_name, wrapper_type if mandatory else Optional[wrapper_type], field_def)
+            if mandatory:
+                record_fields.insert(0, field_tuple)
+            else:
+                record_fields.append(field_tuple)
+
+        record_type = make_dataclass(
+            class_item.name,
+            record_fields,
+            namespace={"Meta": type("Meta", (), {"namespace": model_namespace, "name": class_item.name})},
+            kw_only=True,
+        )
+        self._structure_cache[cache_key] = record_type
+        return record_type
+
     def generate(self, model_name: str):
         model_data = self.find_model_by_name(model_name)
         model_element = self._model_element(model_data)
@@ -34,19 +106,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
             ]
 
             for class_item in self._class_elements(model_data, getattr(topic_item, "tid", None)):
-                record_fields = self._record_fields(
-                    model_data,
-                    getattr(class_item, "tid", None),
-                    tid_name="tid",
-                    tid_namespace=namespace_map["ili"],
-                    xml_namespace=model_namespace,
-                )
-                record_type = make_dataclass(
-                    class_item.name,
-                    record_fields,
-                    namespace={"Meta": type("Meta", (), {"namespace": model_namespace, "name": class_item.name})},
-                    kw_only=True,
-                )
+                record_type = self._structure_record_type(model_data, getattr(class_item, "tid", None), model_namespace)
                 basket_fields.append(
                     (
                         class_item.name.lower(),

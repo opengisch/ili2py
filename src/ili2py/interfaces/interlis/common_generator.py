@@ -74,6 +74,9 @@ class ModelDataGeneratorBase:
     def _types_by_tid(self, basket, type_name: str):
         return {getattr(element, "tid", None): element for element in self._elements_of_type(basket, type_name)}
 
+    def _classes_by_tid(self, basket):
+        return {getattr(element, "tid", None): element for element in self._elements_of_type(basket, "Class")}
+
     def _ordered_attribute_refs(self, basket, class_tid: str):
         refs: list[tuple[int, str]] = []
         for transfer_element in self._elements_of_type(basket, "TransferElement"):
@@ -105,23 +108,28 @@ class ModelDataGeneratorBase:
     def _attribute_field_specs(self, basket, class_tid: str):
         text_types = self._types_by_tid(basket, "TextType")
         num_types = self._types_by_tid(basket, "NumType")
+        multi_value_types = self._types_by_tid(basket, "MultiValue")
         field_specs = []
         for attr_or_param_item in self._ordered_attributes(basket, class_tid):
             type_ref = self._ref_value(getattr(attr_or_param_item, "type_value", None))
-            type_item = text_types.get(type_ref) or num_types.get(type_ref)
+            type_item = text_types.get(type_ref) or num_types.get(type_ref) or multi_value_types.get(type_ref)
             if type_item is None:
                 continue
             mandatory = bool(getattr(type_item, "mandatory", False))
-            python_type: Any = (
-                str
-                if type(type_item).__name__ == "TextType"
-                else self._python_type_for_num_type(type_item)
-            )
             attr_name = getattr(attr_or_param_item, "name", "").lower()
             xml_name = getattr(attr_or_param_item, "name", None)
             if not attr_name or not xml_name:
                 continue
-            field_specs.append((attr_name, xml_name, python_type, mandatory))
+            type_name = type(type_item).__name__
+            if type_name == "TextType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                continue
+            if type_name == "NumType":
+                python_type: Any = self._python_type_for_num_type(type_item)
+                field_specs.append(("scalar", attr_name, xml_name, python_type, mandatory, type_item))
+                continue
+            if type_name == "MultiValue":
+                field_specs.append(("multivalue", attr_name, xml_name, None, mandatory, type_item))
         return field_specs
 
     def find_model_by_name(self, model_name: str) -> ModelDataType:
@@ -148,7 +156,9 @@ class ModelDataGeneratorBase:
         attr_or_param_fields: list[tuple[str, Any, Any]] = [
             ("tid", Optional[str], field(default=None, metadata=tid_metadata))
         ]
-        for attr_name, xml_name, python_type, mandatory in self._attribute_field_specs(basket, class_tid):
+        for field_kind, attr_name, xml_name, python_type, mandatory, _type_item in self._attribute_field_specs(basket, class_tid):
+            if field_kind != "scalar":
+                continue
             metadata = {"name": xml_name, "type": "Element", "required": mandatory}
             if xml_namespace is not None:
                 metadata["namespace"] = xml_namespace
