@@ -381,7 +381,7 @@ def _render_models_py(
 
         if getattr(cls, "oid", None):
             lines.append(
-                "    tid = ili_field(models.CharField(max_length=255, unique=True), "
+                "    tid = ili_field(models.CharField(max_length=255, primary_key=True), "
                 f"oid='{cls.oid.identifier}', qname='{qname}.tid')"
             )
 
