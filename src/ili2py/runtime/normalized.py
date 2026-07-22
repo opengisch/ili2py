@@ -294,14 +294,31 @@ def _polyline_to_coordinates(polyline: AnyElement) -> list[list[NormalizedScalar
         if local_name == "coord":
             point = _coord_to_position(child)
             if point:
-                coordinates.append(point)
+                _append_point_if_new(coordinates, point)
         elif local_name == "arc":
-            # INTERLIS arc uses c1/c2 as the segment endpoint; include it in-order
-            # so curve-dominant polylines keep a usable vertex sequence.
-            point = _arc_endpoint_to_position(child)
-            if point:
-                coordinates.append(point)
+            # INTERLIS arc exposes the segment midpoint (a1/a2[/a3]) and endpoint
+            # (c1/c2[/c3]); include both to preserve a usable ring shape.
+            midpoint = _arc_midpoint_to_position(child)
+            endpoint = _arc_endpoint_to_position(child)
+            if midpoint:
+                _append_point_if_new(coordinates, midpoint)
+            if endpoint:
+                _append_point_if_new(coordinates, endpoint)
     return coordinates
+
+
+def _arc_midpoint_to_position(arc: AnyElement) -> list[NormalizedScalar]:
+    a1 = _child_text(arc, "a1")
+    a2 = _child_text(arc, "a2")
+    a3 = _child_text(arc, "a3")
+
+    if a1 is None or a2 is None:
+        return []
+
+    pos: list[NormalizedScalar] = [_parse_number(a1), _parse_number(a2)]
+    if a3 is not None:
+        pos.append(_parse_number(a3))
+    return pos
 
 
 def _arc_endpoint_to_position(arc: AnyElement) -> list[NormalizedScalar]:
@@ -316,6 +333,12 @@ def _arc_endpoint_to_position(arc: AnyElement) -> list[NormalizedScalar]:
     if c3 is not None:
         pos.append(_parse_number(c3))
     return pos
+
+
+def _append_point_if_new(coordinates: list[list[NormalizedScalar]], point: list[NormalizedScalar]) -> None:
+    if coordinates and coordinates[-1] == point:
+        return
+    coordinates.append(point)
 
 
 def _surface_to_coordinates(surface: AnyElement) -> list[list[list[NormalizedScalar]]]:
