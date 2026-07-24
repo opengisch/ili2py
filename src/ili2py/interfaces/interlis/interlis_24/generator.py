@@ -121,8 +121,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
         self._structure_cache[cache_key] = record_type
         return record_type
 
-    def generate(self, model_name: str):
-        """Build a dynamic Transfer subclass tailored to one model name."""
+    def _basket_choices_for_model(self, model_name: str) -> list[dict[str, Any]]:
         model_data = self.find_model_by_name(model_name)
         model_element = self._model_element(model_data)
         model_tid = getattr(model_element, "tid", None)
@@ -173,6 +172,9 @@ class DataClassGenerator(ModelDataGeneratorBase):
             )
             basket_choices.append({"name": topic_item.name, "type": basket_type, "namespace": model_namespace})
 
+        return basket_choices
+
+    def _build_transfer_type(self, basket_choices: list[dict[str, Any]]):
         data_section_type = make_dataclass(
             "DataSection",
             [
@@ -193,3 +195,14 @@ class DataClassGenerator(ModelDataGeneratorBase):
             )
 
         return XtfTransfer24
+
+    def generate(self, model_name: str):
+        """Build a dynamic Transfer subclass tailored to one model name."""
+        return self._build_transfer_type(self._basket_choices_for_model(model_name))
+
+    def generate_many(self, model_names: list[str]):
+        """Build a Transfer subclass covering baskets for multiple models."""
+        basket_choices: list[dict[str, Any]] = []
+        for model_name in model_names:
+            basket_choices.extend(self._basket_choices_for_model(model_name))
+        return self._build_transfer_type(basket_choices)

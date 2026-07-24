@@ -32,16 +32,38 @@ class Reader:
         """Parse an XTF and return parsed transfers keyed by model name.
 
         The file is pre-parsed once to discover model names, then parsed again
-        with model-specific generated dataclasses.
+        with one combined generated dataclass graph for all models.
         """
         pre_xtf = self.parser.parse(input_xtf, Transfer)
+        model_names = model_names_from_transfer(pre_xtf)
         canonical_input = self._canonicalized_input(input_xtf)
-        xtf_data = {}
         generator = DataClassGenerator(self.meta_model)
-        for model_name in model_names_from_transfer(pre_xtf):
-            generated_dataclasses = generator.generate(model_name)
-            xtf_data[model_name] = self.parser.parse(io.BytesIO(canonical_input), generated_dataclasses)
-        return xtf_data
+        generated_dataclasses = generator.generate_many(model_names)
+        parsed_transfer = self.parser.parse(io.BytesIO(canonical_input), generated_dataclasses)
+        return {
+            model_name: self._transfer_for_model(parsed_transfer, model_name)
+            for model_name in model_names
+        }
+
+    def _transfer_for_model(self, parsed_transfer: object, model_name: str):
+        datasection = getattr(parsed_transfer, "datasection", None)
+        if datasection is None:
+            return parsed_transfer
+
+        namespace = f"http://www.interlis.ch/xtf/2.4/{model_name}"
+        baskets = getattr(datasection, "baskets", [])
+        model_baskets = [
+            basket
+            for basket in baskets
+            if getattr(getattr(type(basket), "Meta", None), "namespace", None) == namespace
+        ]
+
+        data_section_type = type(datasection)
+        transfer_type = type(parsed_transfer)
+        return transfer_type(
+            headersection=getattr(parsed_transfer, "headersection", None),
+            datasection=data_section_type(baskets=model_baskets),
+        )
 
     def _canonicalized_input(self, input_xtf: str | IO[AnyStr]) -> bytes:
         """Normalize dotted local element names in 2.4 payloads.
