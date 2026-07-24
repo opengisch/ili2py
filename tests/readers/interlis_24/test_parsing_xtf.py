@@ -159,3 +159,37 @@ def test_reader_parses_copied_bodenbedeckung_textposition_fixture():
     objektnummer = record.objektnummer.items[0]
     assert getattr(objektnummer, "textposition", None) is not None
     assert len(objektnummer.textposition.items) == 1
+
+
+def test_reader_parses_textposition_enum_backed_fields_for_dmav_bodenbedeckung():
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "DMAVTYM_Alles_V1_1.imd"
+    xtf_path = repo_root.parent / "data" / "DMAVTYM_Alles_V1_1.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["DMAV_Bodenbedeckung_V1_1"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Bodenbedeckung")
+
+    found = False
+    for record in getattr(basket, "bodenbedeckung", []):
+        objektname_wrapper = getattr(record, "objektname", None)
+        for objname_item in getattr(objektname_wrapper, "items", []) or []:
+            textposition_wrapper = getattr(objname_item, "textposition", None)
+            for textposition_item in getattr(textposition_wrapper, "items", []) or []:
+                if getattr(textposition_item, "textgroesse", None) is None:
+                    continue
+                if getattr(textposition_item, "hreferenzpunkt", None) is None:
+                    continue
+                if getattr(textposition_item, "vreferenzpunkt", None) is None:
+                    continue
+                found = True
+                break
+            if found:
+                break
+        if found:
+            break
+
+    assert found

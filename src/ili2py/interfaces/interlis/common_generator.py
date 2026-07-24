@@ -1,5 +1,5 @@
 from decimal import Decimal
-from dataclasses import field, make_dataclass
+from dataclasses import fields, field, is_dataclass, make_dataclass
 from typing import Any, List, Optional
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
@@ -9,6 +9,17 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data imp
 
 
 class ModelDataGeneratorBase:
+
+    def _global_type_by_tid(self, tid: str | None, type_names: set[str]):
+        if not tid:
+            return None
+        for basket in self._model_baskets():
+            for element in self._basket_elements(basket):
+                if type(element).__name__ not in type_names:
+                    continue
+                if getattr(element, "tid", None) == tid:
+                    return element
+        return None
 
     def _python_type_for_num_type(self, type_item):
         numeric_bounds = [getattr(type_item, "min", None), getattr(type_item, "max", None)]
@@ -47,6 +58,15 @@ class ModelDataGeneratorBase:
         nested = getattr(value, "attr_or_param_type", None)
         if nested is not None:
             return getattr(nested, "ref", None)
+        # xsdata-generated variants use field names like attr_or_param_type_2.
+        if is_dataclass(value):
+            for value_field in fields(value):
+                nested_value = getattr(value, value_field.name, None)
+                if nested_value is None:
+                    continue
+                nested_ref = getattr(nested_value, "ref", None)
+                if nested_ref is not None:
+                    return nested_ref
         return None
 
     def _topic_elements(self, basket, model_tid: str):
@@ -124,6 +144,7 @@ class ModelDataGeneratorBase:
         coord_types = self._types_by_tid(basket, "CoordType")
         line_types = self._types_by_tid(basket, "LineType")
         ref_types = self._types_by_tid(basket, "ReferenceType")
+        enum_types = self._types_by_tid(basket, "EnumType")
         role_types = self._types_by_tid(basket, "Role")
         object_types = self._types_by_tid(basket, "ObjectType")
         class_ref_types = self._types_by_tid(basket, "ClassRefType")
@@ -147,10 +168,27 @@ class ModelDataGeneratorBase:
                 or coord_types.get(type_ref)
                 or line_types.get(type_ref)
                 or ref_types.get(type_ref)
+                or enum_types.get(type_ref)
                 or role_types.get(type_ref)
                 or object_types.get(type_ref)
                 or class_ref_types.get(type_ref)
             )
+            if type_item is None:
+                type_item = self._global_type_by_tid(
+                    type_ref,
+                    {
+                        "TextType",
+                        "NumType",
+                        "MultiValue",
+                        "CoordType",
+                        "LineType",
+                        "ReferenceType",
+                        "EnumType",
+                        "Role",
+                        "ObjectType",
+                        "ClassRefType",
+                    },
+                )
             if type_item is None:
                 continue
             mandatory = bool(getattr(type_item, "mandatory", False))
@@ -171,6 +209,9 @@ class ModelDataGeneratorBase:
                 continue
             if type_name in {"CoordType", "LineType"}:
                 field_specs.append(("geometry", attr_name, xml_name, None, mandatory, type_item))
+                continue
+            if type_name == "EnumType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
                 continue
             if type_name in {"ReferenceType", "Role", "ObjectType", "ClassRefType"}:
                 field_specs.append(("ref", attr_name, xml_name, None, mandatory, type_item))
