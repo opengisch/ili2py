@@ -103,3 +103,59 @@ def test_reader_export_preserves_total_arc_count_for_dmav_xtf():
         exported_arc_count += sum(1 for e in exported_root.iter() if e.tag == f"{{{GEOM_NS}}}arc")
 
     assert exported_arc_count == source_arc_count
+
+
+def test_reader_parses_nested_textposition_for_dmav_bodenbedeckung_bags():
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "DMAVTYM_Alles_V1_1.imd"
+    xtf_path = repo_root.parent / "data" / "DMAVTYM_Alles_V1_1.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["DMAV_Bodenbedeckung_V1_1"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Bodenbedeckung")
+
+    found_objektnummer_textposition = False
+    found_objektname_textposition = False
+
+    for record in getattr(basket, "bodenbedeckung", []):
+        objektnummer_wrapper = getattr(record, "objektnummer", None)
+        for item in getattr(objektnummer_wrapper, "items", []) or []:
+            textposition_wrapper = getattr(item, "textposition", None)
+            if getattr(textposition_wrapper, "items", None):
+                found_objektnummer_textposition = True
+                break
+
+        objektname_wrapper = getattr(record, "objektname", None)
+        for item in getattr(objektname_wrapper, "items", []) or []:
+            textposition_wrapper = getattr(item, "textposition", None)
+            if getattr(textposition_wrapper, "items", None):
+                found_objektname_textposition = True
+                break
+
+        if found_objektnummer_textposition and found_objektname_textposition:
+            break
+
+    assert found_objektnummer_textposition
+    assert found_objektname_textposition
+
+
+def test_reader_parses_copied_bodenbedeckung_textposition_fixture():
+    repo_root = Path(__file__).resolve().parents[3]
+    fixture_dir = repo_root / "tests" / "data" / "fixtures" / "bodenbedeckung_textposition"
+    imd_path = fixture_dir / "minimal_bodenbedeckung_textposition.imd"
+    xtf_path = fixture_dir / "minimal_bodenbedeckung_textposition.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["DMAV_Bodenbedeckung_V1_1"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Bodenbedeckung")
+    record = basket.bodenbedeckung[0]
+
+    objektnummer = record.objektnummer.items[0]
+    assert getattr(objektnummer, "textposition", None) is not None
+    assert len(objektnummer.textposition.items) == 1

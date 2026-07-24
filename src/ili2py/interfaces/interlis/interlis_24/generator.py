@@ -24,6 +24,25 @@ class DataClassGenerator(ModelDataGeneratorBase):
     def __init__(self, meta_model):
         super().__init__(meta_model)
         self._structure_cache: dict[tuple[str, str], type[Any]] = {}
+        self._class_context_cache: dict[str, tuple[Any, Any] | None] = {}
+
+    def _class_context(self, class_tid: str):
+        if class_tid in self._class_context_cache:
+            return self._class_context_cache[class_tid]
+
+        for model_data in self._model_baskets():
+            class_item = self._classes_by_tid(model_data).get(class_tid)
+            if class_item is not None:
+                ctx = (model_data, class_item)
+                self._class_context_cache[class_tid] = ctx
+                return ctx
+
+        self._class_context_cache[class_tid] = None
+        return None
+
+    def _namespace_for_tid(self, class_tid: str) -> str:
+        model_name = class_tid.split(".", 1)[0]
+        return f"http://www.interlis.ch/xtf/2.4/{model_name}"
 
     def _structure_record_type(self, model_data, class_tid: str, model_namespace: str):
         cache_key = (class_tid, model_namespace)
@@ -31,12 +50,13 @@ class DataClassGenerator(ModelDataGeneratorBase):
         if cached is not None:
             return cached
 
-        class_item = self._classes_by_tid(model_data).get(class_tid)
-        if class_item is None:
+        class_ctx = self._class_context(class_tid)
+        if class_ctx is None:
             raise LookupError(f"No class with tid {class_tid} could be found.")
+        class_model_data, class_item = class_ctx
 
         record_fields = self._record_fields(
-            model_data,
+            class_model_data,
             class_tid,
             tid_name="tid",
             tid_namespace=namespace_map["ili"],
@@ -45,15 +65,16 @@ class DataClassGenerator(ModelDataGeneratorBase):
             geometry_python_type=_GeometryElement24,
         )
 
-        for field_kind, attr_name, xml_name, _python_type, mandatory, type_item in self._attribute_field_specs(model_data, class_tid):
+        for field_kind, attr_name, xml_name, _python_type, mandatory, type_item in self._attribute_field_specs(class_model_data, class_tid):
             if field_kind != "multivalue":
                 continue
             base_ref = getattr(getattr(type_item, "base_type", None), "ref", None)
             if not base_ref:
                 continue
-            if base_ref not in self._classes_by_tid(model_data):
+            if self._class_context(base_ref) is None:
                 continue
-            child_type = self._structure_record_type(model_data, base_ref, model_namespace)
+            child_namespace = self._namespace_for_tid(base_ref)
+            child_type = self._structure_record_type(class_model_data, base_ref, child_namespace)
             wrapper_type = make_dataclass(
                 f"{class_item.name}_{xml_name}Wrapper",
                 [
@@ -68,7 +89,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
                                     {
                                         "name": child_type.__name__,
                                         "type": child_type,
-                                        "namespace": model_namespace,
+                                        "namespace": child_namespace,
                                     },
                                 ),
                             },
