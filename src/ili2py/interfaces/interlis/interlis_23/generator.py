@@ -1,21 +1,11 @@
-from dataclasses import field, make_dataclass
-from typing import List, Optional
+from dataclasses import dataclass, field, make_dataclass
+from typing import List
 
+from ili2py.interfaces.interlis.common_generator import ModelDataGeneratorBase
 from ili2py.interfaces.interlis.interlis_23 import TRANSFER
-from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data import ModelData
 
 
-class DataClassGenerator:
-
-    def __init__(self, meta_model: ImdTransfer):
-        self.meta_model = meta_model
-
-    def find_model_by_name(self, model_name: str) -> ModelData:
-        for model_data in self.meta_model.datasection.ModelData:
-            if model_name == model_data.Model.Name:
-                return model_data
-        raise LookupError(f"No model with name {model_name} could be found.")
+class DataClassGenerator(ModelDataGeneratorBase):
 
     def generate(self, model_name: str):
         """
@@ -34,109 +24,42 @@ class DataClassGenerator:
         """
         model_data = self.find_model_by_name(model_name)
         topic_fields = []
-        for topic_item in model_data.SubModel:
+        model_element = self._model_element(model_data)
+        model_tid = getattr(model_element, "tid", None)
+        for topic_item in self._topic_elements(model_data, model_tid):
             class_fields = [("bid", str, field(metadata={"name": "BID", "type": "Attribute"}))]
-            # find all classes inside sub_model[ili:TOPIC]
-            for class_item in model_data.Class:
-                if (
-                    class_item.element_in_package.ref == topic_item.tid
-                    and class_item.kind == "Class"
-                ):
-                    attr_or_param_fields = [
-                        (
-                            "tid",
-                            Optional[str],
-                            field(default=None, metadata={"name": "TID", "type": "Attribute"}),
-                        )
-                    ]
-                    # find all attributes related to class
-                    for attr_or_param_item in model_data.AttrOrParam:
-                        if attr_or_param_item.AttrParent_ref.ref == class_item.tid:
-                            # find type definition for attribute (currently we have implemented [ili:TextType]
-                            for type_item in model_data.TextType:
-                                if type_item.tid == attr_or_param_item.Type_ref.ref:
-                                    attr_or_param_field = (
-                                        attr_or_param_item.Name.lower(),
-                                        str if type_item.mandatory else Optional[str],
-                                        (
-                                            field(
-                                                metadata={
-                                                    "name": attr_or_param_item.Name,
-                                                    "type": "Element",
-                                                    "required": type_item.mandatory,
-                                                }
-                                            )
-                                            if type_item.mandatory
-                                            else field(
-                                                default=None,
-                                                metadata={
-                                                    "name": attr_or_param_item.Name,
-                                                    "type": "Element",
-                                                    "required": type_item.mandatory,
-                                                },
-                                            )
-                                        ),
-                                    )
-                                    # dataclasses have kwargs and args. We need to ensure, that the stay in correct
-                                    # order (args first)
-                                    if type_item.mandatory:
-                                        attr_or_param_fields.insert(0, attr_or_param_field)
-                                    else:
-                                        attr_or_param_fields.append(attr_or_param_field)
-                            # find type definition for attribute (currently we have implemented [ili:NumType]
-                            for type_item in model_data.NumType:
-                                if type_item.tid == attr_or_param_item.Type_ref.ref:
-                                    attr_or_param_field = (
-                                        attr_or_param_item.Name.lower(),
-                                        int if type_item.mandatory else Optional[int],
-                                        (
-                                            field(
-                                                metadata={
-                                                    "name": attr_or_param_item.Name,
-                                                    "type": "Element",
-                                                    "required": type_item.mandatory,
-                                                }
-                                            )
-                                            if type_item.mandatory
-                                            else field(
-                                                default=None,
-                                                metadata={
-                                                    "name": attr_or_param_item.Name,
-                                                    "type": "Element",
-                                                    "required": type_item.mandatory,
-                                                },
-                                            )
-                                        ),
-                                    )
-                                    # dataclasses have kwargs and args. We need to ensure, that the stay in correct
-                                    # order (args first)
-                                    if type_item.mandatory:
-                                        attr_or_param_fields.insert(0, attr_or_param_field)
-                                    else:
-                                        attr_or_param_fields.append(attr_or_param_field)
+            for class_item in self._class_elements(model_data, getattr(topic_item, "tid", None)):
+                attr_or_param_fields = self._record_fields(
+                    model_data,
+                    getattr(class_item, "tid", None),
+                    tid_name="TID",
+                    tid_namespace=None,
+                    xml_namespace=None,
+                )
 
-                    class_fields.append(
-                        (
-                            class_item.name.lower(),
-                            List[make_dataclass(class_item.name, attr_or_param_fields)],
-                            field(
-                                default=None,
-                                metadata={
-                                    "name": class_item.tid,
-                                    "type": "Element",
-                                    "default": None,
-                                },
-                            ),
-                        )
+                class_fields.append(
+                    (
+                        class_item.name.lower(),
+                        List[make_dataclass(class_item.name, attr_or_param_fields)],
+                        field(
+                            default=None,
+                            metadata={
+                                "name": class_item.tid,
+                                "type": "Element",
+                                "default": None,
+                            },
+                        ),
                     )
+                )
             topic_fields.append(
                 (
-                    topic_item.Name.lower(),
-                    make_dataclass(topic_item.Name, class_fields),
+                    topic_item.name.lower(),
+                    make_dataclass(topic_item.name, class_fields),
                     field(metadata={"name": topic_item.tid, "type": "Element", "default": None}),
                 )
             )
 
+        @dataclass
         class XtfTransfer(TRANSFER):
             DATASECTION: make_dataclass("DATASECTION", fields=topic_fields)
 

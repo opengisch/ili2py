@@ -6,6 +6,7 @@ from xsdata.formats.dataclass.parsers.config import ParserConfig
 from ili2py.interfaces.interlis.interlis_23 import TRANSFER
 from ili2py.interfaces.interlis.interlis_23.generator import DataClassGenerator
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
+from ili2py.readers.common.xtf import model_names_from_transfer
 
 
 class Reader:
@@ -33,7 +34,7 @@ class Reader:
         # we preparse the XTF to find out what model we are handling
         pre_xtf = self.parser.parse(input_xtf, TRANSFER)
         xtf_data = {}
-        for model in pre_xtf.HEADERSECTION.MODELS:
-            generated_dataclasses = DataClassGenerator(self.meta_model).generate(model.NAME)
-            xtf_data[model.NAME] = self.parser.parse(input_xtf, generated_dataclasses)
+        for model_name in model_names_from_transfer(pre_xtf):
+            generated_dataclasses = DataClassGenerator(self.meta_model).generate(model_name)
+            xtf_data[model_name] = self.parser.parse(input_xtf, generated_dataclasses)
         return xtf_data
