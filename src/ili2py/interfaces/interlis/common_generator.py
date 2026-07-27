@@ -158,6 +158,9 @@ class ModelDataGeneratorBase:
         role_types = self._types_by_tid(basket, "Role")
         object_types = self._types_by_tid(basket, "ObjectType")
         class_ref_types = self._types_by_tid(basket, "ClassRefType")
+        formatted_types = self._types_by_tid(basket, "FormattedType")
+        boolean_types = self._types_by_tid(basket, "BooleanType")
+        blackbox_types = self._types_by_tid(basket, "BlackboxType")
         field_specs = []
         for class_item in self._ordered_field_elements(basket, class_tid):
             item_type_name = type(class_item).__name__
@@ -182,6 +185,9 @@ class ModelDataGeneratorBase:
                 or role_types.get(type_ref)
                 or object_types.get(type_ref)
                 or class_ref_types.get(type_ref)
+                or formatted_types.get(type_ref)
+                or boolean_types.get(type_ref)
+                or blackbox_types.get(type_ref)
             )
             if type_item is None:
                 type_item = self._global_type_by_tid(
@@ -197,6 +203,9 @@ class ModelDataGeneratorBase:
                         "Role",
                         "ObjectType",
                         "ClassRefType",
+                        "FormattedType",
+                        "BooleanType",
+                        "BlackboxType",
                     },
                 )
             if type_item is None:
@@ -221,6 +230,15 @@ class ModelDataGeneratorBase:
                 field_specs.append(("geometry", attr_name, xml_name, None, mandatory, type_item))
                 continue
             if type_name == "EnumType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                continue
+            if type_name == "FormattedType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                continue
+            if type_name == "BooleanType":
+                field_specs.append(("scalar", attr_name, xml_name, bool, mandatory, type_item))
+                continue
+            if type_name == "BlackboxType":
                 field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
                 continue
             if type_name in {"ReferenceType", "Role", "ObjectType", "ClassRefType"}:
