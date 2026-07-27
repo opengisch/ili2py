@@ -190,6 +190,10 @@ class DataClassGenerator(ModelDataGeneratorBase):
 
         @dataclass(kw_only=True)
         class XtfTransfer24(Transfer):
+            class Meta:
+                name = "transfer"
+                namespace = namespace_map["ili"]
+
             datasection: data_section_type = field(
                 metadata={"name": "datasection", "type": "Element", "namespace": namespace_map["ili"]}
             )

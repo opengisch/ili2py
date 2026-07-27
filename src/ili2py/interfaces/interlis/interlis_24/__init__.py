@@ -38,4 +38,8 @@ class HeaderSection:
 @dataclass
 class Transfer:
 
+    class Meta:
+        name = "transfer"
+        namespace = namespace_map["ili"]
+
     headersection: HeaderSection = field(metadata={"namespace": namespace_map["ili"]})

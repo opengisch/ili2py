@@ -39,7 +39,7 @@ from typing import Any
 
 from xsdata.formats.dataclass.models.generics import AnyElement
 
-from ili2py.interfaces.interlis.interlis_24 import HeaderSection, Model, Models
+from ili2py.interfaces.interlis.interlis_24 import HeaderSection, Model, Models, namespace_map
 from ili2py.interfaces.interlis.interlis_24.generator import (
     DataClassGenerator,
     _GeometryElement24,
@@ -48,6 +48,7 @@ from ili2py.interfaces.interlis.interlis_24.generator import (
 from ili2py.runtime.normalized import NormalizedRecord
 
 GEOMETRY_NAMESPACE = "http://www.interlis.ch/geometry/1.0"
+MODEL_NAMESPACE_PREFIX = "http://www.interlis.ch/xtf/2.4/"
 
 _SUPPORTED_GEOMETRY_TYPES = {
     "Point",
@@ -148,6 +149,22 @@ def build_combined_transfer(
         headersection=header_section,
         datasection=data_section_type(baskets=baskets),
     )
+
+
+def ns_map_for_models(model_names: list[str]) -> dict[str, str]:
+    """Build a prefix map for `XmlSerializer.render(transfer, ns_map=...)`.
+
+    Without this, xsdata auto-assigns opaque `ns0`/`ns1`/... prefixes to
+    every namespace it encounters while rendering a transfer built by
+    `build_transfer`/`build_combined_transfer`, instead of the readable
+    `ili`/`geom`/`<model name>` prefixes real XTF files use (e.g. `xmlns:
+    DMAV_Bodenbedeckung_V1_1="..."`).
+    """
+    ns_map = dict(namespace_map)
+    for model_name in model_names:
+        ns_map[model_name] = f"{MODEL_NAMESPACE_PREFIX}{model_name}"
+
+    return ns_map
 
 
 def _build_baskets_for_model(
