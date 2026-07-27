@@ -90,6 +90,76 @@ def build_transfer(
     """
     generator = DataClassGenerator(metamodel)
     transfer_cls = generator.generate(model_name)
+    baskets = _build_baskets_for_model(generator, model_name, records)
+
+    datasection_field = next(
+        f for f in dataclasses.fields(transfer_cls) if f.name == "datasection"
+    )
+    data_section_type = datasection_field.type
+
+    header_section = HeaderSection(
+        models=Models(elements=[Model(model=model_name)]), sender=sender
+    )
+    return transfer_cls(
+        headersection=header_section,
+        datasection=data_section_type(baskets=baskets),
+    )
+
+
+def build_combined_transfer(
+    metamodel: Any,
+    records: list[NormalizedRecord],
+    *,
+    sender: str = "ili2py",
+) -> Any:
+    """Build one parsed-transfer-shaped object spanning every model in `records`.
+
+    Unlike `build_transfers` (which returns one *separate* transfer object per
+    model), this produces a single `Transfer` -- one `<ili:headersection>`
+    listing every model involved, one `<ili:datasection>` with baskets from
+    all of them -- matching how real combined XTF files are structured (e.g.
+    `data/DMAVTYM_Alles_V1_1.xtf`, which lists many `<ili:model>` entries and
+    baskets from all of them in one document). Uses
+    `DataClassGenerator.generate_many`, the multi-model counterpart of
+    `generate` that `build_transfer` uses for the single-model case.
+    """
+    by_model: dict[str, list[NormalizedRecord]] = defaultdict(list)
+    for record in records:
+        by_model[record["model_name"]].append(record)
+
+    model_names = sorted(by_model)
+    generator = DataClassGenerator(metamodel)
+    transfer_cls = generator.generate_many(model_names)
+
+    baskets: list[Any] = []
+    for model_name in model_names:
+        baskets.extend(_build_baskets_for_model(generator, model_name, by_model[model_name]))
+
+    datasection_field = next(
+        f for f in dataclasses.fields(transfer_cls) if f.name == "datasection"
+    )
+    data_section_type = datasection_field.type
+
+    header_section = HeaderSection(
+        models=Models(elements=[Model(model=name) for name in model_names]),
+        sender=sender,
+    )
+    return transfer_cls(
+        headersection=header_section,
+        datasection=data_section_type(baskets=baskets),
+    )
+
+
+def _build_baskets_for_model(
+    generator: DataClassGenerator,
+    model_name: str,
+    records: list[NormalizedRecord],
+) -> list[Any]:
+    """Build the basket instances for one model's records.
+
+    Shared by `build_transfer` (single model) and `build_combined_transfer`
+    (many models, one basket list per model concatenated together).
+    """
     basket_choices = generator._basket_choices_for_model(model_name)
 
     records_by_topic_class: dict[str, dict[str, list[NormalizedRecord]]] = defaultdict(
@@ -123,18 +193,7 @@ def build_transfer(
 
         baskets.append(basket_cls(**basket_kwargs))
 
-    datasection_field = next(
-        f for f in dataclasses.fields(transfer_cls) if f.name == "datasection"
-    )
-    data_section_type = datasection_field.type
-
-    header_section = HeaderSection(
-        models=Models(elements=[Model(model=model_name)]), sender=sender
-    )
-    return transfer_cls(
-        headersection=header_section,
-        datasection=data_section_type(baskets=baskets),
-    )
+    return baskets
 
 
 def _field_class(cls: type[Any], attr_name: str) -> type[Any]:
@@ -251,6 +310,7 @@ def _arc_element(via: list[Any], point: list[Any]) -> AnyElement:
 def _vertex_element(vertex: Any) -> AnyElement:
     if isinstance(vertex, dict):
         return _arc_element(vertex["arc_via"], vertex["point"])
+
     return _coord_element(vertex)
 
 
