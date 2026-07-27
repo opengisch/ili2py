@@ -6,18 +6,25 @@ loaded IMD metamodel and a list of `NormalizedRecord` dicts (the exact shape
 serialized back to XTF via xsdata's `XmlSerializer`.
 
 Scope: scalar attributes, single references, bag/multivalue children
-(recursively -- e.g. Objektnummer containing Textposition), and simple
-(non-multi) Point/LineString/Polygon geometries built from already-flattened
-coordinate lists. Note that arc/curve segments are *already* lost by the
-time a record reaches `NormalizedRecord` -- `normalize_transfers` flattens
-them into plain point lists on read (see `_polyline_to_coordinates` in
-`normalized.py`) -- so there is no separate "curve support" to add here:
-reconstructing a plain polyline/ring from that same flattened coordinate
-list is a faithful round-trip of the normalized form, even though the
-original XTF used `<arc>` elements.
+(recursively -- e.g. Objektnummer containing Textposition), Point/
+LineString/Polygon/MultiPoint/MultiLineString/MultiPolygon geometries, and
+arc segments. Each coordinate list entry produced by `normalize_transfers`
+is either a plain point ``[x, y(, z)]`` (a straight vertex) or an arc marker
+``{"arc_via": [...], "point": [...]}`` (see `_polyline_to_coordinates` in
+`normalized.py`); `_polyline_element` below reconstructs a `<geom:arc>` for
+the latter and a `<geom:coord>` for the former, so curved segments round-trip
+losslessly rather than just being replayed as extra straight vertices.
+
+Multi-geometry container tags: `geom:multipolyline` is confirmed from real
+production DMAV data (see data/DMAVTYM_Alles_V1_1.xtf). `geom:multicoord`
+and `geom:multisurface` follow the same naming convention but are not
+confirmed against real data (no examples found in that fixture) -- the
+*read* side (`_normalize_geometry_node`) doesn't actually care about the
+wrapper tag name (it detects "multi" structurally, from seeing >1 direct
+same-kind children), so using these names round-trips correctly through
+this codebase's own reader either way.
 
 Not yet supported (raises rather than silently producing wrong XTF):
-- MultiPoint/MultiLineString/MultiPolygon geometries.
 - `RawGeometry` fallback entries (geometry that `normalize_transfers` itself
   couldn't interpret). Deliberately out of scope for now, not just
   unimplemented -- see the ili2py roadmap discussion.
@@ -42,7 +49,14 @@ from ili2py.runtime.normalized import NormalizedRecord
 
 GEOMETRY_NAMESPACE = "http://www.interlis.ch/geometry/1.0"
 
-_SUPPORTED_GEOMETRY_TYPES = {"Point", "LineString", "Polygon"}
+_SUPPORTED_GEOMETRY_TYPES = {
+    "Point",
+    "LineString",
+    "Polygon",
+    "MultiPoint",
+    "MultiLineString",
+    "MultiPolygon",
+}
 
 
 class UnsupportedRecordDataError(ValueError):
@@ -182,8 +196,23 @@ def _build_geometry_element(
         node = _coord_element(geometry["coordinates"])
     elif geometry_type == "LineString":
         node = _polyline_element(geometry["coordinates"])
-    else:
+    elif geometry_type == "Polygon":
         node = _surface_element(geometry["coordinates"])
+    elif geometry_type == "MultiPoint":
+        node = AnyElement(
+            qname=_qn("multicoord"),
+            children=[_coord_element(point) for point in geometry["coordinates"]],
+        )
+    elif geometry_type == "MultiLineString":
+        node = AnyElement(
+            qname=_qn("multipolyline"),
+            children=[_polyline_element(line) for line in geometry["coordinates"]],
+        )
+    else:
+        node = AnyElement(
+            qname=_qn("multisurface"),
+            children=[_surface_element(polygon) for polygon in geometry["coordinates"]],
+        )
 
     return _GeometryElement24(content=[node])
 
@@ -203,10 +232,32 @@ def _coord_element(point: list[Any]) -> AnyElement:
     return AnyElement(qname=_qn("coord"), children=children)
 
 
-def _polyline_element(coordinates: list[list[Any]]) -> AnyElement:
+def _arc_element(via: list[Any], point: list[Any]) -> AnyElement:
+    children = [
+        AnyElement(qname=_qn("a1"), text=str(via[0])),
+        AnyElement(qname=_qn("a2"), text=str(via[1])),
+    ]
+    if len(via) > 2 and via[2] is not None:
+        children.append(AnyElement(qname=_qn("a3"), text=str(via[2])))
+
+    children.append(AnyElement(qname=_qn("c1"), text=str(point[0])))
+    children.append(AnyElement(qname=_qn("c2"), text=str(point[1])))
+    if len(point) > 2 and point[2] is not None:
+        children.append(AnyElement(qname=_qn("c3"), text=str(point[2])))
+
+    return AnyElement(qname=_qn("arc"), children=children)
+
+
+def _vertex_element(vertex: Any) -> AnyElement:
+    if isinstance(vertex, dict):
+        return _arc_element(vertex["arc_via"], vertex["point"])
+    return _coord_element(vertex)
+
+
+def _polyline_element(coordinates: list[Any]) -> AnyElement:
     return AnyElement(
         qname=_qn("polyline"),
-        children=[_coord_element(point) for point in coordinates],
+        children=[_vertex_element(vertex) for vertex in coordinates],
     )
 
 

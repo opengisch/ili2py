@@ -148,7 +148,9 @@ def test_normalize_transfers_covers_point_multi_point_and_arc_geometry_shapes_fo
     assert _raw_xtf_record_has_arc(dmav_xtf_path, bodenbedeckung_arc_heavy["tid"])
     assert bodenbedeckung_arc_heavy["geometries"]["geometrie"]["type"] == "Polygon"
     assert len(bodenbedeckung_arc_heavy["geometries"]["geometrie"]["coordinates"]) >= 1
-    assert len(bodenbedeckung_arc_heavy["geometries"]["geometrie"]["coordinates"][0]) >= 4
+    assert len(bodenbedeckung_arc_heavy["geometries"]["geometrie"]["coordinates"][0]) >= 3
+    arc_ring = bodenbedeckung_arc_heavy["geometries"]["geometrie"]["coordinates"][0]
+    assert any(isinstance(vertex, dict) and "arc_via" in vertex for vertex in arc_ring)
 
 
 def test_normalize_transfers_accepts_explicit_v24_version_parameter(

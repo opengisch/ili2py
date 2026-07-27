@@ -415,8 +415,18 @@ def _direct_geometry_children(node: AnyElement) -> list[AnyElement]:
     return [child for child in getattr(node, "children", []) or [] if isinstance(child, AnyElement)]
 
 
-def _polyline_to_coordinates(polyline: AnyElement) -> list[list[NormalizedScalar]]:
-    coordinates: list[list[NormalizedScalar]] = []
+def _polyline_to_coordinates(polyline: AnyElement) -> list[Any]:
+    """Flatten a polyline into a list of vertices.
+
+    Each entry is either a plain point ``[x, y(, z)]`` (a straight vertex) or
+    an arc marker ``{"arc_via": [x, y(, z)], "point": [x, y(, z)]}`` meaning
+    "the segment from the previous vertex to `point` is a circular arc
+    passing through `arc_via`". This preserves arc/straight segment identity
+    so it can be losslessly reconstructed on write (see
+    `ili2py.runtime.denormalized`), unlike the flat point list this used to
+    produce.
+    """
+    coordinates: list[Any] = []
     for child in getattr(polyline, "children", []) or []:
         if not isinstance(child, AnyElement):
             continue
@@ -424,17 +434,25 @@ def _polyline_to_coordinates(polyline: AnyElement) -> list[list[NormalizedScalar
         if local_name == "coord":
             point = _coord_to_position(child)
             if point:
-                _append_point_if_new(coordinates, point)
+                _append_vertex_if_new(coordinates, point)
         elif local_name == "arc":
-            # INTERLIS arc exposes the segment midpoint (a1/a2[/a3]) and endpoint
-            # (c1/c2[/c3]); include both to preserve a usable ring shape.
             midpoint = _arc_midpoint_to_position(child)
             endpoint = _arc_endpoint_to_position(child)
-            if midpoint:
-                _append_point_if_new(coordinates, midpoint)
-            if endpoint:
-                _append_point_if_new(coordinates, endpoint)
+            if midpoint and endpoint:
+                _append_vertex_if_new(coordinates, {"arc_via": midpoint, "point": endpoint})
     return coordinates
+
+
+def _vertex_position(vertex: Any) -> list[NormalizedScalar]:
+    if isinstance(vertex, dict):
+        return vertex["point"]
+    return vertex
+
+
+def _append_vertex_if_new(coordinates: list[Any], vertex: Any) -> None:
+    if coordinates and _vertex_position(coordinates[-1]) == _vertex_position(vertex):
+        return
+    coordinates.append(vertex)
 
 
 def _arc_midpoint_to_position(arc: AnyElement) -> list[NormalizedScalar]:
@@ -463,12 +481,6 @@ def _arc_endpoint_to_position(arc: AnyElement) -> list[NormalizedScalar]:
     if c3 is not None:
         pos.append(_parse_number(c3))
     return pos
-
-
-def _append_point_if_new(coordinates: list[list[NormalizedScalar]], point: list[NormalizedScalar]) -> None:
-    if coordinates and coordinates[-1] == point:
-        return
-    coordinates.append(point)
 
 
 def _surface_to_coordinates(surface: AnyElement) -> list[list[list[NormalizedScalar]]]:
