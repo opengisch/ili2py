@@ -95,6 +95,7 @@ def _normalize_transfer_v24(model_name: str, datasection: Any) -> list[Normalize
         topic_name = type(basket).__name__
         if not is_dataclass(basket):
             continue
+        bid = getattr(basket, "bid", None)
         for basket_field in fields(basket):
             if basket_field.name == "bid":
                 continue
@@ -104,7 +105,7 @@ def _normalize_transfer_v24(model_name: str, datasection: Any) -> list[Normalize
             for record in records:
                 if not is_dataclass(record):
                     continue
-                normalized_records.append(_normalized_record(model_name, topic_name, record))
+                normalized_records.append(_normalized_record(model_name, topic_name, record, bid=bid))
     return normalized_records
 
 
@@ -121,6 +122,7 @@ def _normalize_transfer_v23(model_name: str, datasection: Any) -> list[Normalize
         )
 
     normalized_records: list[NormalizedRecord] = []
+    datasection_bid = getattr(datasection, "bid", None)
     for topic_field in fields(datasection):
         if topic_field.name == "bid":
             continue
@@ -128,6 +130,7 @@ def _normalize_transfer_v23(model_name: str, datasection: Any) -> list[Normalize
         if topic is None or not is_dataclass(topic):
             continue
         topic_name = type(topic).__name__
+        bid = getattr(topic, "bid", None) or datasection_bid
         for class_field in fields(topic):
             if class_field.name == "bid":
                 continue
@@ -138,7 +141,7 @@ def _normalize_transfer_v23(model_name: str, datasection: Any) -> list[Normalize
             for record in record_items:
                 if not is_dataclass(record):
                     continue
-                normalized_records.append(_normalized_record(model_name, topic_name, record))
+                normalized_records.append(_normalized_record(model_name, topic_name, record, bid=bid))
     return normalized_records
 
 
@@ -170,12 +173,15 @@ def _detect_interlis_version(datasection: Any) -> InterlisVersion:
     )
 
 
-def _normalized_record(model_name: str, topic_name: str, record: Any) -> NormalizedRecord:
+def _normalized_record(
+    model_name: str, topic_name: str, record: Any, *, bid: str | None = None
+) -> NormalizedRecord:
     return {
         "model_name": model_name,
         "topic_name": topic_name,
         "class_name": type(record).__name__,
         "tid": getattr(record, "tid", None),
+        "bid": bid,
         "attributes": _scalar_attributes(record),
         "references": _reference_map(record),
         "geometries": _geometry_map(record),
