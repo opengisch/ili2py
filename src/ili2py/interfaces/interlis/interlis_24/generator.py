@@ -44,11 +44,22 @@ class DataClassGenerator(ModelDataGeneratorBase):
         model_name = class_tid.split(".", 1)[0]
         return f"http://www.interlis.ch/xtf/2.4/{model_name}"
 
-    def _structure_record_type(self, model_data, class_tid: str, model_namespace: str):
+    def _structure_record_type(
+        self, model_data, class_tid: str, model_namespace: str, *, topic_name: str | None = None
+    ):
         """Create or reuse a dataclass for one class/structure tid.
 
         The generated record type includes scalar/reference/geometry fields and
         recursively materialized multivalue wrapper types.
+
+        `topic_name`, when given, disambiguates the case where a class shares
+        its name with its enclosing topic (e.g. topic `Bodenbedeckung`
+        containing a class also named `Bodenbedeckung`): real INTERLIS XTF
+        requires the qualified `Topic.Class` element tag then, since the
+        bare name would otherwise collide with the basket element itself
+        (which uses the topic name). Only relevant for classes reached
+        directly as basket members -- nested/multivalue structure types
+        aren't basket siblings, so they never pass this.
         """
         cache_key = (class_tid, model_namespace)
         cached = self._structure_cache.get(cache_key)
@@ -112,10 +123,15 @@ class DataClassGenerator(ModelDataGeneratorBase):
             else:
                 record_fields.append(field_tuple)
 
+        if topic_name is not None and class_item.name == topic_name:
+            element_name = f"{topic_name}.{class_item.name}"
+        else:
+            element_name = class_item.name
+
         record_type = make_dataclass(
             class_item.name,
             record_fields,
-            namespace={"Meta": type("Meta", (), {"namespace": model_namespace, "name": class_item.name})},
+            namespace={"Meta": type("Meta", (), {"namespace": model_namespace, "name": element_name})},
             kw_only=True,
         )
         self._structure_cache[cache_key] = record_type
@@ -148,7 +164,17 @@ class DataClassGenerator(ModelDataGeneratorBase):
             ]
 
             for class_item in self._class_elements(model_data, getattr(topic_item, "tid", None)):
-                record_type = self._structure_record_type(model_data, getattr(class_item, "tid", None), model_namespace)
+                record_type = self._structure_record_type(
+                    model_data,
+                    getattr(class_item, "tid", None),
+                    model_namespace,
+                    topic_name=topic_item.name,
+                )
+                if class_item.name == topic_item.name:
+                    element_name = f"{topic_item.name}.{class_item.name}"
+                else:
+                    element_name = class_item.name
+
                 basket_fields.append(
                     (
                         class_item.name.lower(),
@@ -156,7 +182,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
                         field(
                             default_factory=list,
                             metadata={
-                                "name": class_item.name,
+                                "name": element_name,
                                 "type": "Element",
                                 "namespace": model_namespace,
                             },
