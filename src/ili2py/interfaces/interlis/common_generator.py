@@ -15,6 +15,63 @@ class ModelDataGeneratorBase:
     centralizes traversal of IlisMeta16 model baskets/classes/attributes.
     """
 
+    def _global_attr_by_tid(self, tid: str | None):
+        """Look up an AttrOrParam by tid across all model baskets.
+
+        Redefined/extended attributes (INTERLIS EXTENDS) keep a `Super` reference
+        to the attribute they redefine, which commonly lives in a different
+        model's basket than the redefining attribute.
+        """
+        if not hasattr(self, "_global_attr_index"):
+            index = {}
+            for basket in self._model_baskets():
+                for element in self._elements_of_type(basket, "AttrOrParam"):
+                    element_tid = getattr(element, "tid", None)
+                    if element_tid:
+                        index[element_tid] = element
+            self._global_attr_index = index
+        return self._global_attr_index.get(tid)
+
+    def _namespace_for_model_name(self, model_name: str) -> str:
+        """Build the version-specific XML namespace URI for a model name.
+
+        Overridden per INTERLIS version, since the namespace URI scheme differs
+        between versions (e.g. INTERLIS 2.4 uses per-model `.../xtf/2.4/{model}`
+        URIs, while 2.3 does not).
+        """
+        raise NotImplementedError
+
+    def _attribute_origin_namespace(self, attr_or_param_item, default_namespace: str | None):
+        """Resolve the XML namespace an attribute is actually transferred under.
+
+        When an attribute redefines/extends an inherited attribute (e.g. widening
+        an enumeration), INTERLIS keeps the original XML element tag/namespace of
+        the model where the attribute was first declared, not the redefining
+        model. Walk the `Super` chain to find that origin model.
+        """
+        current = attr_or_param_item
+        visited: set[str] = set()
+        while True:
+            tid = getattr(current, "tid", None)
+            if not tid or tid in visited:
+                break
+            visited.add(tid)
+            super_ref = getattr(getattr(current, "super", None), "ref", None)
+            if not super_ref:
+                break
+            super_item = self._global_attr_by_tid(super_ref)
+            if super_item is None:
+                break
+            current = super_item
+        origin_tid = getattr(current, "tid", None)
+        if not origin_tid or "." not in origin_tid:
+            return default_namespace
+        origin_model_name = origin_tid.split(".", 1)[0]
+        try:
+            return self._namespace_for_model_name(origin_model_name)
+        except NotImplementedError:
+            return default_namespace
+
     def _global_type_by_tid(self, tid: str | None, type_names: set[str]):
         if not tid:
             return None
@@ -142,11 +199,13 @@ class ModelDataGeneratorBase:
             ordered_elements = list(attr_by_tid.values())
         return ordered_elements
 
-    def _attribute_field_specs(self, basket, class_tid: str):
+    def _attribute_field_specs(self, basket, class_tid: str, default_namespace: str | None = None):
         """Return normalized field specs for attributes/roles of one class.
 
         The returned tuples drive concrete dataclass creation in version-specific
-        generators and encode scalar/ref/geometry/multivalue semantics.
+        generators and encode scalar/ref/geometry/multivalue semantics. Each tuple's
+        last element is the XML namespace the field is actually transferred under
+        (which for redefined/extended attributes differs from `default_namespace`).
         """
         text_types = self._types_by_tid(basket, "TextType")
         num_types = self._types_by_tid(basket, "NumType")
@@ -167,12 +226,15 @@ class ModelDataGeneratorBase:
             if item_type_name == "Role":
                 role_name = getattr(class_item, "name", None)
                 if role_name:
-                    field_specs.append(("ref", role_name.lower(), role_name, None, False, class_item))
+                    field_specs.append(
+                        ("ref", role_name.lower(), role_name, None, False, class_item, default_namespace)
+                    )
                 continue
             if item_type_name != "AttrOrParam":
                 continue
 
             attr_or_param_item = class_item
+            namespace = self._attribute_origin_namespace(attr_or_param_item, default_namespace)
             type_ref = self._ref_value(getattr(attr_or_param_item, "type_value", None))
             type_item = (
                 text_types.get(type_ref)
@@ -217,32 +279,32 @@ class ModelDataGeneratorBase:
                 continue
             type_name = type(type_item).__name__
             if type_name == "TextType":
-                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
                 continue
             if type_name == "NumType":
                 python_type: Any = self._python_type_for_num_type(type_item)
-                field_specs.append(("scalar", attr_name, xml_name, python_type, mandatory, type_item))
+                field_specs.append(("scalar", attr_name, xml_name, python_type, mandatory, type_item, namespace))
                 continue
             if type_name == "MultiValue":
-                field_specs.append(("multivalue", attr_name, xml_name, None, mandatory, type_item))
+                field_specs.append(("multivalue", attr_name, xml_name, None, mandatory, type_item, namespace))
                 continue
             if type_name in {"CoordType", "LineType"}:
-                field_specs.append(("geometry", attr_name, xml_name, None, mandatory, type_item))
+                field_specs.append(("geometry", attr_name, xml_name, None, mandatory, type_item, namespace))
                 continue
             if type_name == "EnumType":
-                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
                 continue
             if type_name == "FormattedType":
-                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
                 continue
             if type_name == "BooleanType":
-                field_specs.append(("scalar", attr_name, xml_name, bool, mandatory, type_item))
+                field_specs.append(("scalar", attr_name, xml_name, bool, mandatory, type_item, namespace))
                 continue
             if type_name == "BlackboxType":
-                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item))
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
                 continue
             if type_name in {"ReferenceType", "Role", "ObjectType", "ClassRefType"}:
-                field_specs.append(("ref", attr_name, xml_name, None, mandatory, type_item))
+                field_specs.append(("ref", attr_name, xml_name, None, mandatory, type_item, namespace))
         return field_specs
 
     def find_model_by_name(self, model_name: str) -> ModelDataType:
@@ -277,7 +339,9 @@ class ModelDataGeneratorBase:
         attr_or_param_fields: list[tuple[str, Any, Any]] = [
             ("tid", Optional[str], field(default=None, metadata=tid_metadata))
         ]
-        for field_kind, attr_name, xml_name, python_type, mandatory, _type_item in self._attribute_field_specs(basket, class_tid):
+        for field_kind, attr_name, xml_name, python_type, mandatory, _type_item, field_namespace in (
+            self._attribute_field_specs(basket, class_tid, xml_namespace)
+        ):
             if field_kind not in {"scalar", "ref", "geometry"}:
                 continue
             if field_kind == "ref":
@@ -289,8 +353,9 @@ class ModelDataGeneratorBase:
                     continue
                 python_type = geometry_python_type
             metadata = {"name": xml_name, "type": "Element", "required": mandatory}
-            if xml_namespace is not None:
-                metadata["namespace"] = xml_namespace
+            resolved_namespace = field_namespace if field_namespace is not None else xml_namespace
+            if resolved_namespace is not None:
+                metadata["namespace"] = resolved_namespace
             field_def = field(metadata=metadata) if mandatory else field(default=None, metadata=metadata)
             field_tuple = (attr_name, python_type if mandatory else Optional[python_type], field_def)
             if mandatory:

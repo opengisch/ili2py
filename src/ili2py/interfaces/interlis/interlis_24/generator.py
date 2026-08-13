@@ -40,9 +40,11 @@ class DataClassGenerator(ModelDataGeneratorBase):
         self._class_context_cache[class_tid] = None
         return None
 
-    def _namespace_for_tid(self, class_tid: str) -> str:
-        model_name = class_tid.split(".", 1)[0]
+    def _namespace_for_model_name(self, model_name: str) -> str:
         return f"http://www.interlis.ch/xtf/2.4/{model_name}"
+
+    def _namespace_for_tid(self, class_tid: str) -> str:
+        return self._namespace_for_model_name(class_tid.split(".", 1)[0])
 
     def _structure_record_type(self, model_data, class_tid: str, model_namespace: str):
         """Create or reuse a dataclass for one class/structure tid.
@@ -70,7 +72,9 @@ class DataClassGenerator(ModelDataGeneratorBase):
             geometry_python_type=_GeometryElement24,
         )
 
-        for field_kind, attr_name, xml_name, _python_type, mandatory, type_item in self._attribute_field_specs(class_model_data, class_tid):
+        for field_kind, attr_name, xml_name, _python_type, mandatory, type_item, field_namespace in (
+            self._attribute_field_specs(class_model_data, class_tid, model_namespace)
+        ):
             if field_kind != "multivalue":
                 continue
             base_ref = getattr(getattr(type_item, "base_type", None), "ref", None)
@@ -78,6 +82,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
                 continue
             if self._class_context(base_ref) is None:
                 continue
+            resolved_namespace = field_namespace if field_namespace is not None else model_namespace
             child_namespace = self._namespace_for_tid(base_ref)
             child_type = self._structure_record_type(class_model_data, base_ref, child_namespace)
             wrapper_type = make_dataclass(
@@ -101,10 +106,10 @@ class DataClassGenerator(ModelDataGeneratorBase):
                         ),
                     )
                 ],
-                namespace={"Meta": type("Meta", (), {"namespace": model_namespace})},
+                namespace={"Meta": type("Meta", (), {"namespace": resolved_namespace})},
                 kw_only=True,
             )
-            metadata = {"name": xml_name, "type": "Element", "namespace": model_namespace, "required": mandatory}
+            metadata = {"name": xml_name, "type": "Element", "namespace": resolved_namespace, "required": mandatory}
             field_def = field(metadata=metadata) if mandatory else field(default=None, metadata=metadata)
             field_tuple = (attr_name, wrapper_type if mandatory else Optional[wrapper_type], field_def)
             if mandatory:
