@@ -16,16 +16,16 @@ class ModelDataGeneratorBase:
     """
 
     def _global_attr_by_tid(self, tid: str | None):
-        """Look up an AttrOrParam by tid across all model baskets.
+        """Look up an AttrOrParam by tid across all loaded models' metadata.
 
         Redefined/extended attributes (INTERLIS EXTENDS) keep a `Super` reference
         to the attribute they redefine, which commonly lives in a different
-        model's basket than the redefining attribute.
+        model than the redefining attribute.
         """
         if not hasattr(self, "_global_attr_index"):
             index = {}
-            for basket in self._model_baskets():
-                for element in self._elements_of_type(basket, "AttrOrParam"):
+            for model_metadata in self._model_baskets():
+                for element in self._elements_of_type(model_metadata, "AttrOrParam"):
                     element_tid = getattr(element, "tid", None)
                     if element_tid:
                         index[element_tid] = element
