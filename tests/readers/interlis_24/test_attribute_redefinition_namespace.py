@@ -2,6 +2,7 @@ from pathlib import Path
 
 from ili2py.readers.interlis_24.ilismeta16.xsdata import Imd16Reader
 from ili2py.readers.interlis_24.xtf.xsdata import Reader
+from ili2py.runtime.normalized import normalize_transfers
 
 
 def test_reader_parses_redefined_attribute_kept_in_origin_model_namespace():
@@ -126,3 +127,36 @@ def test_reader_parses_classes_inherited_into_a_shared_basket_from_a_base_topic(
     assert liegenschaft_records
     assert all(getattr(record, "tid", None) for record in grundstueck_records)
     assert all(getattr(record, "tid", None) for record in liegenschaft_records)
+
+
+def test_normalize_labels_inherited_basket_records_under_their_true_origin_model():
+    """Regression test: normalization must label a record with the model its
+    class actually belongs to, not the model of the basket/transfer it was
+    parsed under.
+
+    `KGK_Grundstuecke_V1_0.Grundstuecke`'s basket carries `Grundstueck` and
+    `Liegenschaft` records that are declared only in `DMAV_Grundstuecke_V1_1`
+    (see the shared-basket regression test above). ili2django's model bindings
+    are keyed by a class's true origin (model_name, topic_name, class_name),
+    e.g. `DMAV_Grundstuecke_V1_1.Grundstuecke.Grundstueck` -- if normalization
+    always stamped every record from this basket with the transfer's own model
+    name (`KGK_Grundstuecke_V1_0`), such records would never match their
+    binding, get silently skipped as "no matching binding", and any reference
+    pointing at them would then fail to resolve.
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "KGK_Alles_V1_0.imd"
+    xtf_path = repo_root.parent / "data" / "KGK_Testdaten_20260608.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    transfers = reader.read(str(xtf_path))
+    records = normalize_transfers(transfers)
+
+    def model_names_for(class_name: str) -> set[str]:
+        return {r["model_name"] for r in records if r["class_name"] == class_name}
+
+    assert model_names_for("Grundstueck") == {"DMAV_Grundstuecke_V1_1"}
+    assert model_names_for("Liegenschaft") == {"DMAV_Grundstuecke_V1_1"}
+    assert model_names_for("SelbstaendigesDauerndesRecht") == {"KGK_Grundstuecke_V1_0"}
+    assert model_names_for("Einzelobjekt") == {"KGK_Einzelobjekte_V1_0"}

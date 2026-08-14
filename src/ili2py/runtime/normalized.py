@@ -105,8 +105,33 @@ def _normalize_transfer_v24(model_name: str, datasection: Any) -> list[Normalize
             for record in records:
                 if not is_dataclass(record):
                     continue
-                normalized_records.append(_normalized_record(model_name, topic_name, record, bid=bid))
+                record_model_name = _record_model_name(record, default=model_name)
+                normalized_records.append(_normalized_record(record_model_name, topic_name, record, bid=bid))
     return normalized_records
+
+
+_XTF_24_NAMESPACE_PREFIX = "http://www.interlis.ch/xtf/2.4/"
+
+
+def _record_model_name(record: Any, *, default: str) -> str:
+    """Resolve the model a record's class actually belongs to.
+
+    A basket can carry records whose class is declared in a different (base)
+    model than the basket's own model -- topic extensions share one basket
+    with their base topic, so a class inherited unchanged by the extending
+    topic still transfers through it. The generated dataclass's own
+    ``Meta.namespace`` already reflects the class's true origin model (see
+    ``ili2py.interfaces.interlis.interlis_24.generator``), so prefer that over
+    the basket's/transfer's model name -- otherwise the record is labeled
+    under the wrong model and never matches the base model's binding.
+    """
+    meta = getattr(type(record), "Meta", None)
+    namespace = getattr(meta, "namespace", None) if meta else None
+    if isinstance(namespace, str) and namespace.startswith(_XTF_24_NAMESPACE_PREFIX):
+        model_name = namespace[len(_XTF_24_NAMESPACE_PREFIX) :]
+        if model_name:
+            return model_name
+    return default
 
 
 def _normalize_transfer_v23(model_name: str, datasection: Any) -> list[NormalizedRecord]:
