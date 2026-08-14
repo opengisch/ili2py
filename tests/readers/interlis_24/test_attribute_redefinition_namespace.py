@@ -31,3 +31,31 @@ def test_reader_parses_redefined_attribute_kept_in_origin_model_namespace():
 
     assert records
     assert all(getattr(record, "einzelobjektart", None) for record in records)
+
+
+def test_reader_parses_purely_inherited_attribute_not_redeclared_by_subclass():
+    """Regression test for a class extension that does not redefine an inherited
+    attribute at all.
+
+    `KGK_Grundstuecke_V1_0.SelbstaendigesDauerndesRecht` extends
+    `DMAV_Grundstuecke_V1_1.SelbstaendigesDauerndesRecht` and transfers its mandatory
+    `Flaechenmass` attribute unchanged: there is no local `AttrOrParam` for it on the
+    KGK class, only a `TransferElement` pointing directly at the DMAV attribute's tid.
+    If field resolution only looks at attributes declared locally on the class, this
+    inherited field is silently dropped from the generated dataclass, so the value is
+    never parsed and downstream inserts hit a NOT NULL violation instead.
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "KGK_Alles_V1_0.imd"
+    xtf_path = repo_root.parent / "data" / "KGK_Testdaten_20260608.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["KGK_Grundstuecke_V1_0"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Grundstuecke")
+    records = getattr(basket, "selbstaendigesdauerndesrecht", [])
+
+    assert records
+    assert all(getattr(record, "flaechenmass", None) is not None for record in records)

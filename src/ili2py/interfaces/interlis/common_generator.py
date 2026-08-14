@@ -194,6 +194,18 @@ class ModelDataGeneratorBase:
                 continue
             if ref in role_by_tid:
                 ordered_elements.append(role_by_tid[ref])
+                continue
+            # Inherited attributes/roles that aren't redefined by this class are only
+            # declared on a base class, possibly in a different model. The local
+            # class's TransferElement still references them directly by tid, so fall
+            # back to a lookup across all loaded models.
+            inherited_attr = self._global_attr_by_tid(ref)
+            if inherited_attr is not None:
+                ordered_elements.append(inherited_attr)
+                continue
+            inherited_role = self._global_type_by_tid(ref, {"Role"})
+            if inherited_role is not None:
+                ordered_elements.append(inherited_role)
 
         if not ordered_elements:
             ordered_elements = list(attr_by_tid.values())
