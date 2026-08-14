@@ -41,15 +41,18 @@ class ModelDataGeneratorBase:
         """
         raise NotImplementedError
 
-    def _attribute_origin_namespace(self, attr_or_param_item, default_namespace: str | None):
-        """Resolve the XML namespace an attribute is actually transferred under.
+    def _field_origin_namespace(self, attr_or_role_item, default_namespace: str | None):
+        """Resolve the XML namespace an attribute or role is actually transferred under.
 
-        When an attribute redefines/extends an inherited attribute (e.g. widening
-        an enumeration), INTERLIS keeps the original XML element tag/namespace of
-        the model where the attribute was first declared, not the redefining
-        model. Walk the `Super` chain to find that origin model.
+        When a field redefines/extends an inherited attribute (e.g. widening an
+        enumeration), INTERLIS keeps the original XML element tag/namespace of the
+        model where it was first declared, not the redefining model. Walk the
+        `Super` chain to find that origin model. A field that is merely inherited
+        unchanged (no local redefinition, e.g. a Role pulled in from a base class
+        via `_ordered_field_elements`'s global fallback) has no `Super` of its own,
+        so its own tid already points at the correct origin model.
         """
-        current = attr_or_param_item
+        current = attr_or_role_item
         visited: set[str] = set()
         while True:
             tid = getattr(current, "tid", None)
@@ -238,15 +241,16 @@ class ModelDataGeneratorBase:
             if item_type_name == "Role":
                 role_name = getattr(class_item, "name", None)
                 if role_name:
+                    role_namespace = self._field_origin_namespace(class_item, default_namespace)
                     field_specs.append(
-                        ("ref", role_name.lower(), role_name, None, False, class_item, default_namespace)
+                        ("ref", role_name.lower(), role_name, None, False, class_item, role_namespace)
                     )
                 continue
             if item_type_name != "AttrOrParam":
                 continue
 
             attr_or_param_item = class_item
-            namespace = self._attribute_origin_namespace(attr_or_param_item, default_namespace)
+            namespace = self._field_origin_namespace(attr_or_param_item, default_namespace)
             type_ref = self._ref_value(getattr(attr_or_param_item, "type_value", None))
             type_item = (
                 text_types.get(type_ref)

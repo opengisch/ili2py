@@ -59,3 +59,32 @@ def test_reader_parses_purely_inherited_attribute_not_redeclared_by_subclass():
 
     assert records
     assert all(getattr(record, "flaechenmass", None) is not None for record in records)
+
+
+def test_reader_parses_inherited_role_kept_in_origin_model_namespace():
+    """Regression test for an inherited association Role, not just plain attributes.
+
+    `KGK_Grundstuecke_V1_0.SelbstaendigesDauerndesRecht` also inherits the
+    `Grundstueck` role of the `DMAV_Grundstuecke_V1_1.GrundstueckSelbstaendigesDauerndesRecht`
+    association unchanged. Roles don't carry a `Super` reference the way redefined
+    attributes do, so a role pulled in purely through inheritance (via
+    `_ordered_field_elements`'s cross-model fallback) must have its namespace derived
+    from its own tid rather than defaulting to the extending class's model
+    (KGK_Grundstuecke_V1_0); otherwise xsdata never binds the reference and the
+    mandatory foreign key ends up NULL at the database layer.
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "KGK_Alles_V1_0.imd"
+    xtf_path = repo_root.parent / "data" / "KGK_Testdaten_20260608.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["KGK_Grundstuecke_V1_0"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Grundstuecke")
+    records = getattr(basket, "selbstaendigesdauerndesrecht", [])
+
+    assert records
+    assert all(getattr(record, "grundstueck", None) is not None for record in records)
+    assert all(getattr(record.grundstueck, "ref", None) for record in records)
