@@ -88,3 +88,41 @@ def test_reader_parses_inherited_role_kept_in_origin_model_namespace():
     assert records
     assert all(getattr(record, "grundstueck", None) is not None for record in records)
     assert all(getattr(record.grundstueck, "ref", None) for record in records)
+
+
+def test_reader_parses_classes_inherited_into_a_shared_basket_from_a_base_topic():
+    """Regression test for classes that belong only to a base topic, not the
+    extending topic, but still transfer through the extending topic's basket.
+
+    A topic extension (`KGK_Grundstuecke_V1_0.Grundstuecke` extends
+    `DMAV_Grundstuecke_V1_1.Grundstuecke`) shares ONE basket with its base topic:
+    the XTF nests both the extending topic's own classes (e.g.
+    SelbstaendigesDauerndesRecht, redefined by KGK) and the base topic's classes
+    that KGK doesn't touch at all (Liegenschaft, Grundstueck, Grenzpunkt, ...)
+    as children of a single basket element tagged with the extending topic's
+    namespace. Which classes belong to a basket is defined by `AllowedInBasket`
+    metadata, not by which topic a class is declared in. If basket generation
+    only enumerates classes declared locally in the topic, base-topic classes
+    are missing entirely from the generated dataclass, so xsdata silently drops
+    every such record instead of raising -- e.g. plain `Grundstueck` and
+    `Liegenschaft` records disappear, along with everything that references
+    them, cascading into unresolved-forward-reference failures downstream.
+    """
+    repo_root = Path(__file__).resolve().parents[3]
+    imd_path = repo_root / "tests" / "data" / "models" / "KGK_Alles_V1_0.imd"
+    xtf_path = repo_root.parent / "data" / "KGK_Testdaten_20260608.xtf"
+
+    meta_model = Imd16Reader().read(str(imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    result = reader.read(str(xtf_path))
+
+    transfer = result["KGK_Grundstuecke_V1_0"]
+    basket = next(b for b in transfer.datasection.baskets if type(b).__name__ == "Grundstuecke")
+
+    grundstueck_records = getattr(basket, "grundstueck", [])
+    liegenschaft_records = getattr(basket, "liegenschaft", [])
+
+    assert grundstueck_records
+    assert liegenschaft_records
+    assert all(getattr(record, "tid", None) for record in grundstueck_records)
+    assert all(getattr(record, "tid", None) for record in liegenschaft_records)

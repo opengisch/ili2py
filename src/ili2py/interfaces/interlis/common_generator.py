@@ -142,6 +142,42 @@ class ModelDataGeneratorBase:
         ]
 
     def _class_elements(self, basket, topic_tid: str):
+        """List the classes transferred in one topic's basket.
+
+        A topic that extends another topic (INTERLIS EXTENDS) shares a single
+        basket with its base topic: the XTF encodes both the extending topic's
+        own classes and the base topic's inherited-but-not-redefined classes
+        under one basket, tagged with the extending topic's namespace. Which
+        classes belong to a basket is authoritatively listed by `AllowedInBasket`
+        entries for the topic's `.BASKET` data unit -- this includes classes
+        declared in a different (base) model, so falls back to a global lookup
+        when a class isn't in this basket's own metadata. If no such listing
+        exists (e.g. the topic doesn't extend anything), fall back to classes
+        declared locally in this topic.
+        """
+        basket_tid = f"{topic_tid}.BASKET"
+        allowed_class_tids: list[str] = []
+        seen_tids: set[str] = set()
+        for entry in self._elements_of_type(basket, "AllowedInBasket"):
+            if getattr(getattr(entry, "of_data_unit", None), "ref", None) != basket_tid:
+                continue
+            class_tid = getattr(getattr(entry, "class_in_basket", None), "ref", None)
+            if class_tid and class_tid not in seen_tids:
+                seen_tids.add(class_tid)
+                allowed_class_tids.append(class_tid)
+
+        if allowed_class_tids:
+            local_classes = self._classes_by_tid(basket)
+            classes = []
+            for class_tid in allowed_class_tids:
+                class_item = local_classes.get(class_tid) or self._global_type_by_tid(
+                    class_tid, {"Class"}
+                )
+                if class_item is not None and getattr(class_item, "kind", None) == "Class":
+                    classes.append(class_item)
+            if classes:
+                return classes
+
         return [
             element
             for element in self._elements_of_type(basket, "Class")

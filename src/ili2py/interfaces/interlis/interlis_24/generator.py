@@ -153,9 +153,15 @@ class DataClassGenerator(ModelDataGeneratorBase):
             ]
 
             for class_item in self._class_elements(model_data, getattr(topic_item, "tid", None)):
-                record_type = self._structure_record_type(
-                    model_data, getattr(class_item, "tid", None), model_namespace
-                )
+                class_tid = getattr(class_item, "tid", None)
+                # A topic that extends a base topic shares one basket with it, so
+                # this basket can list classes declared in a different (base)
+                # model -- e.g. Liegenschaft/Grundstueck inherited unchanged from
+                # DMAV_Grundstuecke_V1_1 into a KGK_Grundstuecke_V1_0 basket. Each
+                # class's own tid already identifies the model it's actually
+                # tagged under in the XTF.
+                class_namespace = self._namespace_for_tid(class_tid) if class_tid else model_namespace
+                record_type = self._structure_record_type(model_data, class_tid, class_namespace)
                 basket_fields.append(
                     (
                         class_item.name.lower(),
@@ -165,7 +171,7 @@ class DataClassGenerator(ModelDataGeneratorBase):
                             metadata={
                                 "name": class_item.name,
                                 "type": "Element",
-                                "namespace": model_namespace,
+                                "namespace": class_namespace,
                             },
                         ),
                     )
