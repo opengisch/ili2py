@@ -166,8 +166,8 @@ class EnumMappingTypeCases:
     class Meta:
         global_type = False
 
-    enum_assignment: Optional[EnumAssignment] = field(
-        default=None,
+    enum_assignment: list[EnumAssignment] = field(
+        default_factory=list,
         metadata={
             "name": "EnumAssignment",
             "type": "Element",
@@ -182,8 +182,8 @@ class FunctionCallTypeArguments:
     class Meta:
         global_type = False
 
-    actual_argument: Optional[ActualArgument] = field(
-        default=None,
+    actual_argument: list[ActualArgument] = field(
+        default_factory=list,
         metadata={
             "name": "ActualArgument",
             "type": "Element",
