@@ -11,8 +11,8 @@ class DrawingRuleTypeRule:
     class Meta:
         global_type = False
 
-    cond_sign_param_assignment: Optional[CondSignParamAssignment] = field(
-        default=None,
+    cond_sign_param_assignment: list[CondSignParamAssignment] = field(
+        default_factory=list,
         metadata={
             "name": "CondSignParamAssignment",
             "type": "Element",
