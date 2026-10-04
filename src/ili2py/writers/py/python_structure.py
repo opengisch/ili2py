@@ -127,7 +127,9 @@ class Base(ABC):
         Returns:
             The flattened version of the given documentation.
         """
-        return [mandatory(mandatory(item.doc_text).text) for item in documentation]
+        return [
+            mandatory(doc_text.text) for item in documentation for doc_text in item.doc_text
+        ]
 
     @staticmethod
     def get_element_of_type_from_list(
@@ -897,23 +899,23 @@ class Class(Base):
     def translate_path_els(path_els_imd: list[PathOrInspFactorTypePathEls]) -> list[PathEl]:
         translated_path_els = []
         for path_el_imd in path_els_imd:
-            path_el = mandatory(path_el_imd.path_el)
-            translated_path_els.append(
-                PathEl(
-                    kind=path_el.kind,
-                    ref=path_el.ref.ref if path_el.ref else None,
-                    num_index=path_el.num_index,
-                    spec_index=path_el.spec_index,
+            for path_el in path_el_imd.path_el:
+                translated_path_els.append(
+                    PathEl(
+                        kind=path_el.kind,
+                        ref=path_el.ref.ref if path_el.ref else None,
+                        num_index=path_el.num_index,
+                        spec_index=path_el.spec_index,
+                    )
                 )
-            )
         return translated_path_els
 
     @staticmethod
     def translate_actual_argument(imd_element: ActualArgumentType) -> ActualArgument:
         object_classes = []
         for object_class in imd_element.object_classes:
-            if object_class.class_ref:
-                object_classes.append(mandatory_ref(object_class.class_ref.ref))
+            for class_ref in object_class.class_ref:
+                object_classes.append(mandatory_ref(class_ref.ref))
         return ActualArgument(
             formal_argument=(
                 imd_element.formal_argument.ref if imd_element.formal_argument else None
@@ -970,10 +972,9 @@ class Class(Base):
         return FunctionCall(
             function=imd_element.function.ref if imd_element.function else None,
             arguments=[
-                Class.translate_actual_argument(
-                    mandatory(function_call_argument.actual_argument)
-                )
+                Class.translate_actual_argument(actual_argument)
                 for function_call_argument in imd_element.arguments
+                for actual_argument in function_call_argument.actual_argument
             ],
         )
 
@@ -998,8 +999,9 @@ class Class(Base):
             if imd_element.enum_value
             else None,
             cases=[
-                Class.translate_enum_assignment(mandatory(case.enum_assignment))
+                Class.translate_enum_assignment(enum_assignment)
                 for case in imd_element.cases
+                for enum_assignment in case.enum_assignment
             ],
         )
         return translated_element
@@ -1130,11 +1132,8 @@ class Class(Base):
             constraint: UniqueConstraintType = index.index[oid]
             unique_def = []
             for unique_def_imd in constraint.unique_def:
-                unique_def.append(
-                    Class.translate_path_or_insp_factor(
-                        mandatory(unique_def_imd.path_or_insp_factor)
-                    )
-                )
+                for path_or_insp_factor in unique_def_imd.path_or_insp_factor:
+                    unique_def.append(Class.translate_path_or_insp_factor(path_or_insp_factor))
             translated_constraints.append(
                 DictEncoder().encode(
                     UniqueConstraint(

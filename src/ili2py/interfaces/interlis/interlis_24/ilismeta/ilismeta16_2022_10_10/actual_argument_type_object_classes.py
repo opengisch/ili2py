@@ -11,8 +11,8 @@ class ActualArgumentTypeObjectClasses:
     class Meta:
         global_type = False
 
-    class_ref: Optional[ClassRef] = field(
-        default=None,
+    class_ref: list[ClassRef] = field(
+        default_factory=list,
         metadata={
             "name": "ClassRef",
             "type": "Element",

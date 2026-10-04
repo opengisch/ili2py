@@ -19,3 +19,11 @@ generated as a single object choice, but had to be a list of choices, actually. 
 corrected manually by making it an optional list of union... and in the field definition the
 `default=None` had to be changed to `default_factory=list`. After that fix all expressions could
 be parsed from IMD16 files in the tests.
+
+xsdata also took the `LIST OF` attributes for single elements, wherever the IMD it was generated
+from has one element at most in them: a path (`PathEls`) kept its first element only, a unique
+constraint (`UniqueDef`) its first attribute, a function call (`Arguments`) its first argument.
+Their elements were corrected manually to lists, as the choice above, in the classes of
+`Documentation`, `Derivates` (of `AttrOrParam` and of `Role`), `FormationParameter`, `PathEls`,
+`Cases`, `ObjectClasses`, `Arguments`, `UniqueDef`, `Assignments`, `Rule`, `TranslatedDoc` and
+`Translations`. A test checks that an IMD keeps all their elements once parsed.

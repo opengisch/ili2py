@@ -11,8 +11,8 @@ class PathOrInspFactorTypePathEls:
     class Meta:
         global_type = False
 
-    path_el: Optional[PathEl] = field(
-        default=None,
+    path_el: list[PathEl] = field(
+        default_factory=list,
         metadata={
             "name": "PathEl",
             "type": "Element",
