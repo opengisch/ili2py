@@ -11,8 +11,8 @@ class MetranslationTypeTranslatedDoc:
     class Meta:
         global_type = False
 
-    doc_text_translation: Optional[DocTextTranslation] = field(
-        default=None,
+    doc_text_translation: list[DocTextTranslation] = field(
+        default_factory=list,
         metadata={
             "name": "DocTextTranslation",
             "type": "Element",
