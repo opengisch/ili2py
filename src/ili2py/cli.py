@@ -28,14 +28,21 @@ def version_msg():
     return message
 
 
+def flavour_options(setting: str) -> str:
+    """Lists the allowed values of a tool setting per flavour, e.g. for help texts."""
+    return ", ".join(
+        [f"{key}: {getattr(tool_settings[key], setting)}" for key in tool_settings]
+    )
+
+
 @click.group()
 @click.option("-v", "--verbose", is_flag=True, help="Print debug information", default=False)
 @click.version_option(version, "-V", "--version", message=version_msg())
 def cli(verbose):
     level = logging.DEBUG if verbose else logging.INFO
     handlers = []
-    # we recognize if we run in tty -> colorlogging is enabled with rich logging
-    # else we use the default stream handler (this avoids awkward output when it's piped to a file).
+    # we recognize if we run in tty -> colorlogging is enabled with rich logging else we use
+    # the default stream handler (this avoids awkward output when it's piped to a file).
     if sys.stdout.isatty():
         handlers.append(RichHandler())
     else:
@@ -66,35 +73,39 @@ def cli(verbose):
     "--flavour",
     is_flag=False,
     default=list(tool_settings.keys())[0],
-    help=f'the desired flavour (one of {", ".join(tool_settings.keys())})',
+    help=f"the desired flavour (one of {', '.join(tool_settings.keys())})",
 )
 @click.option(
     "-d",
     "--direction",
     is_flag=False,
     default=None,
-    help=f'the desired direction, depending on the selected flavour (one of {", ".join([f'{key}: {tool_settings[key]["settings"]["directions"]}' for key in tool_settings])})',
+    help="the desired direction, depending on the selected flavour "
+    f"(one of {flavour_options('directions')})",
 )
 @click.option(
     "-l",
     "--linetype",
     is_flag=False,
     default=None,
-    help=f'the desired linetype, depending on the selected flavour (one of {", ".join([f'{key}: {tool_settings[key]["settings"]["linetype"]}' for key in tool_settings])})',
+    help="the desired linetype, depending on the selected flavour "
+    f"(one of {flavour_options('linetype')})",
 )
 @click.option(
     "-n",
     "--file_name",
     is_flag=False,
     default="diagram",
-    help=f"The name of the output diagram. The postfix (md, puml, etc. is added automatically due to selected flavour).",
+    help="The name of the output diagram. The postfix (md, puml, etc. is added automatically "
+    "due to selected flavour).",
 )
 @click.option(
     "-m",
     "--models",
     is_flag=False,
     required=False,
-    help="""Model names separated by comma. This is used to filter the content of the resulting diagram.
+    help="""Model names separated by comma. This is used to filter the content of the
+    resulting diagram.
     If not provided, the full tree will be drawn.
     NOTE: This works in conjunction with the depth parameter
     """,
@@ -115,9 +126,10 @@ def cli(verbose):
     default=None,
     type=int,
     required=False,
-    help="""The depth how the diagram should be drawn in reference to the level of imports. 0 is the model itself,
-    1 the model itself and all models its importing and so on.
-    NOTE: This can be used in conjunction to the model names to add arbitrary models to the diagram.
+    help="""The depth how the diagram should be drawn in reference to the level of imports.
+    0 is the model itself, 1 the model itself and all models its importing and so on.
+    NOTE: This can be used in conjunction to the model names to add arbitrary models to the
+    diagram.
     """,
 )
 @click.pass_context
@@ -134,26 +146,24 @@ def diagram(ctx: click.Context, **kwargs: Any):
     file_name = kwargs.pop("file_name")
     multiplier = kwargs.pop("spacing_line_length")
     depth = kwargs.pop("depth")
-    if model_names:
-        model_names = model_names.split(",")
-    else:
-        model_names = []
+    model_names = model_names.split(",") if model_names else []
     flavour = kwargs.pop("flavour")
-    if flavour not in tool_settings.keys():
+    if flavour not in tool_settings:
         click.echo(
-            f'The output {flavour} is not allowed. It has to be one of {", ".join(tool_settings.keys())}'
+            f"The output {flavour} is not allowed. "
+            f"It has to be one of {', '.join(tool_settings.keys())}"
         )
         sys.exit(2)
     try:
         metamodel = Imd16Reader().read(metamodel_path)
         index = Index(metamodel.datasection)
         diagram = Diagram.from_imd(index)
-        assembled_file_name = f"{file_name or flavour}.{tool_settings[flavour]['postfix']}"
+        assembled_file_name = f"{file_name or flavour}.{tool_settings[flavour].postfix}"
         logging.info(
             f"""Diagram ({flavour}) is generated with:
             path:                   {os.path.join(output_path, assembled_file_name)}
-            direction:              {direction if direction else 'DEFAULT'}
-            linetype:               {linetype if linetype else 'DEFAULT'}
+            direction:              {direction if direction else "DEFAULT"}
+            linetype:               {linetype if linetype else "DEFAULT"}
             spacing line length:    {multiplier}
             depth:                  {depth}
         """

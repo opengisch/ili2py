@@ -1,9 +1,15 @@
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
-from typing import List, Optional
+from typing import TYPE_CHECKING
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import HasRef, Ref
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.shared import imd_namespace_map
+
+if TYPE_CHECKING:
+    # factor.py imports this module
+    from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.factor.factor import (  # noqa: E501
+        PathOrInspFactor,
+    )
 
 
 @dataclass
@@ -22,10 +28,10 @@ class PathElElement(HasRef):
         MetaObject = auto()
 
     Kind: KindEnum
-    NumIndex: Optional[int] = None
+    NumIndex: int | None = None
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    Ref_ref: Optional[Ref] = field(
+    Ref_ref: Ref | None = field(
         default=None,
         metadata={"name": "Ref"},
     )
@@ -33,7 +39,7 @@ class PathElElement(HasRef):
 
 @dataclass
 class PathElsElement:
-    PathEl: List[PathElElement] = field(default_factory=list)
+    PathEl: list[PathElElement] = field(default_factory=list)
 
 
 @dataclass

@@ -9,21 +9,19 @@ from ili2py.mappers.internal.ilismeta16.model_data.domain import Code, LengthRan
 
 
 class DocText:
-
     def __init__(self, text: str, name: str | None = None):
         self.text = text
         self.name = name
 
 
 class MetaAttribute:
-
     def __init__(self, name: str, value: str, meta_element: Optional["MetaElement"] = None):
         self.name = name
         self.value = value
         self.meta_element = meta_element
 
 
-class MetaElement(ABC):
+class MetaElement(ABC):  # noqa: B024 - ABSTRACT in IlisMeta16
     def __init__(
         self,
         tid: str,
@@ -42,8 +40,7 @@ class MetaElement(ABC):
         self.element_in_package = element_in_package
 
 
-class ExtendableMe(ABC, MetaElement):
-
+class ExtendableMe(MetaElement, ABC):
     def __init__(
         self,
         tid: str,
@@ -74,7 +71,7 @@ class ExtendableMe(ABC, MetaElement):
 # Models definition of ilisMeta16.ili
 
 
-class Package(ABC, MetaElement):
+class Package(MetaElement, ABC):
     def __init__(
         self,
         tid: str,
@@ -195,27 +192,28 @@ class SubModel(Package):
     """
 
 
-class Type(ABC):
+class Type(ExtendableMe, ABC):
     pass
 
 
-class Expression(ABC):
+class Expression(ABC):  # noqa: B024 - ABSTRACT in IlisMeta16
     pass
 
 
 class Multiplicity:
     def __init__(self, minimum: int, maximum: int | None = None):
         MultRange(minimum)
-        MultRange(maximum)
+        if maximum is not None:
+            MultRange(maximum)
         self.minimum = minimum
         self.maximum = maximum
 
 
-class Constraint(ABC, MetaElement):
+class Constraint(MetaElement, ABC):
     pass
 
 
-class DomainType(ABC, Type):
+class DomainType(Type, ABC):
     def __init__(
         self,
         tid: str,
@@ -326,7 +324,7 @@ class AttrOrParam(ExtendableMe):
 # Types related to other types of ilisMeta16.ili
 
 
-class TypeRelatedType(ABC, DomainType):
+class TypeRelatedType(DomainType, ABC):
     def __init__(
         self,
         tid: str,
@@ -357,8 +355,8 @@ class TypeRelatedType(ABC, DomainType):
             super_class=super_class,
         )
         self.base_type = base_type
-        # TODO: How to implement external reference? aka what does that mean actually in this context?
-        #  Just, that it can be from another model?
+        # TODO: How to implement external reference? aka what does that mean actually in this
+        #  context? Just, that it can be from another model?
         self.type_restrictions = type_restrictions or []
 
 

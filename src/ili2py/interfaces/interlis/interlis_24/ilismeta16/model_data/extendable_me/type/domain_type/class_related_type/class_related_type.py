@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import imd_namespace_map
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.domain_type.domain_type import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.domain_type.domain_type import (  # noqa: E501
     DomainType,
 )
 

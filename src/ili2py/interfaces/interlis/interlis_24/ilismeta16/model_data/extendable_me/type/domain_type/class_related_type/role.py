@@ -2,11 +2,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum, auto
 from typing import Optional
 
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.domain_type.class_related_type.class_related_type import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.domain_type.class_related_type.class_related_type import (  # noqa: E501
     ReferenceType,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import OrderedRef
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.serialization_elements import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.serialization_elements import (  # noqa: E501
     MultiplicityElement,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.shared import imd_namespace_map
@@ -14,7 +14,6 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16.shared import imd_namespa
 
 @dataclass
 class Role(ReferenceType):
-
     class StrongnessEnum(StrEnum):
         Assoc = auto()
         Aggr = auto()
@@ -22,7 +21,7 @@ class Role(ReferenceType):
 
     @dataclass
     class _Multiplicity:
-        Multiplicity: Optional[MultiplicityElement] = field(
+        Multiplicity: MultiplicityElement | None = field(
             default=None,
             metadata={
                 "namespace": imd_namespace_map["IlisMeta16"],

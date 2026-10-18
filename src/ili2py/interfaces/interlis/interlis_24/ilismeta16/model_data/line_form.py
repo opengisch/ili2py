@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import imd_namespace_map
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.meta_element import MetaElement
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.meta_element import (
+    MetaElement,
+)
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import HasRef, Ref
 
 
@@ -10,7 +11,7 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references imp
 class LineForm(MetaElement):
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    Structure_ref: Optional[Ref] = field(
+    Structure_ref: Ref | None = field(
         metadata={
             "name": "Structure",
             "namespace": imd_namespace_map["IlisMeta16"],

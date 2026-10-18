@@ -1,8 +1,13 @@
 from dataclasses import dataclass, field
-from typing import Optional
 
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.expression import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.expression import (  # noqa: E501
+    CompoundExpr,
     UnaryExpr,
+)
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.factor.factor import (  # noqa: E501
+    Constant,
+    UnitFunction,
+    UnitRef,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.shared import imd_namespace_map
 
@@ -36,13 +41,13 @@ class UnitRefElement:
 
 @dataclass
 class CompoundExprElement:
-    CompoundExpr: "CompoundExpr" = field(
+    CompoundExpr: "CompoundExpr | None" = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    UnaryExpression: "UnaryExpr" = field(
+    UnaryExpression: "UnaryExpr | None" = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
@@ -61,15 +66,14 @@ class UnitFunctionElement:
 
 @dataclass
 class MultiplicityElement:
-
     # TODO: *Optional* seems to be wrong regarding to ilismeta model
-    Min: Optional[int] = field(
+    Min: int | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    Max: Optional[int] = field(
+    Max: int | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],

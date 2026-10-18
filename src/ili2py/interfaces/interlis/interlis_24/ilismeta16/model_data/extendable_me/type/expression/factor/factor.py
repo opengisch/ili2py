@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.expression import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.expression import (  # noqa: E501
     Expression,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.path_elements import (
@@ -17,7 +17,6 @@ class Factor(Expression):
 
 @dataclass
 class PathOrInspFactor(Factor):
-
     PathEls: PathElsElement
 
 
@@ -44,5 +43,4 @@ class UnitRef(Factor):
 
 @dataclass
 class UnitFunction(Factor):
-
     Explanation: str

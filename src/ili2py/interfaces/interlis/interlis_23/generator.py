@@ -1,5 +1,5 @@
 from dataclasses import field, make_dataclass
-from typing import List, Optional
+from typing import Optional
 
 from ili2py.interfaces.interlis.interlis_23 import TRANSFER
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
@@ -7,7 +7,6 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data imp
 
 
 class DataClassGenerator:
-
     def __init__(self, meta_model: ImdTransfer):
         self.meta_model = meta_model
 
@@ -23,14 +22,14 @@ class DataClassGenerator:
         construction plan of the dataclasses is derived from the tree of dataclass objects
         which has to be created to be first.
 
-        TODO: currently this makes no big sense since we usually want to read all models which can be
-            in an XTF.
+        TODO: currently this makes no big sense since we usually want to read all models which
+            can be in an XTF.
 
         Args:
             model_name: The name of the desired model name which the XTF is constructed from.
 
-        Returns: The tree of dataclasses representing the structure of the XTF. This can be used to generate
-            readers out of it.
+        Returns: The tree of dataclasses representing the structure of the XTF. This can be
+            used to generate readers out of it.
         """
         model_data = self.find_model_by_name(model_name)
         topic_fields = []
@@ -45,19 +44,20 @@ class DataClassGenerator:
                     attr_or_param_fields = [
                         (
                             "tid",
-                            Optional[str],
+                            Optional[str],  # noqa: UP045 - runtime type for xsdata
                             field(default=None, metadata={"name": "TID", "type": "Attribute"}),
                         )
                     ]
                     # find all attributes related to class
                     for attr_or_param_item in model_data.AttrOrParam:
                         if attr_or_param_item.AttrParent_ref.ref == class_item.tid:
-                            # find type definition for attribute (currently we have implemented [ili:TextType]
+                            # find type definition for attribute (currently we have implemented
+                            # [ili:TextType]
                             for type_item in model_data.TextType:
                                 if type_item.tid == attr_or_param_item.Type_ref.ref:
                                     attr_or_param_field = (
                                         attr_or_param_item.Name.lower(),
-                                        str if type_item.mandatory else Optional[str],
+                                        str if type_item.mandatory else Optional[str],  # noqa: UP045
                                         (
                                             field(
                                                 metadata={
@@ -77,18 +77,19 @@ class DataClassGenerator:
                                             )
                                         ),
                                     )
-                                    # dataclasses have kwargs and args. We need to ensure, that the stay in correct
-                                    # order (args first)
+                                    # dataclasses have kwargs and args. We need to ensure, that
+                                    # the stay in correct order (args first)
                                     if type_item.mandatory:
                                         attr_or_param_fields.insert(0, attr_or_param_field)
                                     else:
                                         attr_or_param_fields.append(attr_or_param_field)
-                            # find type definition for attribute (currently we have implemented [ili:NumType]
+                            # find type definition for attribute (currently we have implemented
+                            # [ili:NumType]
                             for type_item in model_data.NumType:
                                 if type_item.tid == attr_or_param_item.Type_ref.ref:
                                     attr_or_param_field = (
                                         attr_or_param_item.Name.lower(),
-                                        int if type_item.mandatory else Optional[int],
+                                        int if type_item.mandatory else Optional[int],  # noqa: UP045
                                         (
                                             field(
                                                 metadata={
@@ -108,8 +109,8 @@ class DataClassGenerator:
                                             )
                                         ),
                                     )
-                                    # dataclasses have kwargs and args. We need to ensure, that the stay in correct
-                                    # order (args first)
+                                    # dataclasses have kwargs and args. We need to ensure, that
+                                    # the stay in correct order (args first)
                                     if type_item.mandatory:
                                         attr_or_param_fields.insert(0, attr_or_param_field)
                                     else:
@@ -118,7 +119,7 @@ class DataClassGenerator:
                     class_fields.append(
                         (
                             class_item.name.lower(),
-                            List[make_dataclass(class_item.name, attr_or_param_fields)],
+                            list[make_dataclass(class_item.name, attr_or_param_fields)],
                             field(
                                 default=None,
                                 metadata={
@@ -133,7 +134,9 @@ class DataClassGenerator:
                 (
                     topic_item.Name.lower(),
                     make_dataclass(topic_item.Name, class_fields),
-                    field(metadata={"name": topic_item.tid, "type": "Element", "default": None}),
+                    field(
+                        metadata={"name": topic_item.tid, "type": "Element", "default": None}
+                    ),
                 )
             )
 

@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import IO, AnyStr
+from typing import IO, AnyStr, ClassVar
 
 from xsdata.formats.dataclass.parsers import XmlParser
 from xsdata.formats.dataclass.parsers.config import ParserConfig
@@ -7,8 +7,8 @@ from xsdata.formats.dataclass.parsers.config import ParserConfig
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
 
 
-class Reader(ABC):
-    _reader_class = None
+class Reader(ABC):  # noqa: B024 - subclasses set _reader_class
+    _reader_class: ClassVar[type[ImdTransfer]]
 
     def __init__(
         self,

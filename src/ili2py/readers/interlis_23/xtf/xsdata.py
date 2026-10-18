@@ -9,7 +9,6 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
 
 
 class Reader:
-
     def __init__(
         self,
         meta_model: ImdTransfer,

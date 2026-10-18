@@ -6,7 +6,7 @@ from ili2py.mappers.helpers import Index
 
 
 def handle_model_versions(index: Index) -> str:
-    ili_version = None
+    ili_version: str | None = None
     for model in index.types_bucket["Model"]:
         if model.name == "INTERLIS":
             logging.debug(
@@ -23,6 +23,10 @@ def handle_model_versions(index: Index) -> str:
                     "(enable debug and check logs for details). Please have also a look at "
                     "https://interlis.discourse.group/t/gibt-es-gruende-weshalb-man-ili2-3-und-ili2-4-nicht-mischen-sollte/78"
                 )
+    if ili_version is None:
+        raise LookupError(
+            "No model besides INTERLIS found to derive the INTERLIS version from"
+        )
     return ili_version
 
 

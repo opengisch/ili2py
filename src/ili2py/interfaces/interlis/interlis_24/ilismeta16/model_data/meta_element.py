@@ -1,15 +1,12 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.abstract_element import (
     AbstractElement,
     DocTextElement,
-)
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data import (
     MetaAttributeElement,
-    imd_namespace_map,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import HasRef, Ref
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.shared import imd_namespace_map
 
 
 @dataclass(kw_only=True)
@@ -20,13 +17,13 @@ class MetaElement(HasRef, AbstractElement):
         }
     )
     tid: str = field(metadata={"type": "Attribute", "namespace": imd_namespace_map["ili"]})
-    Documentation: Optional[List["MetaElement._Documentation"]] = field(
+    Documentation: list["MetaElement._Documentation"] | None = field(
         default_factory=list,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    MetaAttribute: Optional[List[MetaAttributeElement]] = field(
+    MetaAttribute: list[MetaAttributeElement] | None = field(
         default_factory=list,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
@@ -34,7 +31,7 @@ class MetaElement(HasRef, AbstractElement):
     )
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    ElementInPackage_ref: Optional[Ref] = field(
+    ElementInPackage_ref: Ref | None = field(
         default=None,
         metadata={"name": "ElementInPackage"},
     )

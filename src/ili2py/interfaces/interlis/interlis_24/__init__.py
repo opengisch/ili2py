@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 namespace_map = {
     "ili": "http://www.interlis.ch/xtf/2.4/INTERLIS",
@@ -10,13 +9,12 @@ namespace_map = {
 
 @dataclass
 class Model:
-
     model: str = field(metadata={"namespace": namespace_map["ili"]})
 
 
 @dataclass
 class Models:
-    elements: List[Model] = field(
+    elements: list[Model] = field(
         default_factory=list,
         metadata={
             "type": "Elements",
@@ -27,9 +25,8 @@ class Models:
 
 @dataclass
 class HeaderSection:
-
     models: Models = field(metadata={"namespace": namespace_map["ili"]})
-    sender: Optional[str] = field(
+    sender: str | None = field(
         default=None,
         metadata={"namespace": namespace_map["ili"]},
     )
@@ -37,5 +34,4 @@ class HeaderSection:
 
 @dataclass
 class Transfer:
-
     headersection: HeaderSection = field(metadata={"namespace": namespace_map["ili"]})

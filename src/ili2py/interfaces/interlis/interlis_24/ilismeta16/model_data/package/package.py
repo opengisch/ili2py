@@ -6,7 +6,9 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16 import imd_namespace_map
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.abstract_element import (
     Ili1FormatElement,
 )
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.meta_element import MetaElement
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.meta_element import (
+    MetaElement,
+)
 
 
 @dataclass(kw_only=True)
@@ -32,49 +34,49 @@ class Model(Package):
             "namespace": imd_namespace_map["IlisMeta16"],
         }
     )
-    Contracted: Optional[bool] = field(
+    Contracted: bool | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    Language: Optional[str] = field(
+    Language: str | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    At: Optional[str] = field(
+    At: str | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    Version: Optional[str] = field(
+    Version: str | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    NoIncrementalTransfer: Optional[bool] = field(
+    NoIncrementalTransfer: bool | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    CharSetIANAName: Optional[str] = field(
+    CharSetIANAName: str | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    xmlns: Optional[str] = field(
+    xmlns: str | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         },
     )
-    ili1Transfername: Optional[str] = field(
+    ili1Transfername: str | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
@@ -89,7 +91,7 @@ class Model(Package):
 
     @dataclass
     class _Ili1Format:
-        Ili1Format: Optional[Ili1FormatElement] = None
+        Ili1Format: Ili1FormatElement | None = None
 
 
 @dataclass

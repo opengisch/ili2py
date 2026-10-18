@@ -1,0 +1,32 @@
+name: Lint and type check
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: ruff and mypy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Lint (ruff check, ruff format --check)
+        run: make lint
+
+      - name: Type check (mypy)
+        run: make check

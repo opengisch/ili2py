@@ -3,7 +3,7 @@ from enum import StrEnum, auto
 from typing import Optional
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import imd_namespace_map
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.type_class import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.type_class import (  # noqa: E501
     Type,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import (
@@ -11,7 +11,7 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references imp
     OrderedRef,
     Ref,
 )
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.serialization_elements import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.serialization_elements import (  # noqa: E501
     MultiplicityElement,
 )
 
@@ -32,15 +32,14 @@ class BlackboxType(DomainType):
 
 @dataclass
 class CoordType(DomainType):
-
-    NullAxis: Optional[int] = field(
+    NullAxis: int | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
-    PiHalfAxis: Optional[int] = field(
+    PiHalfAxis: int | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
     # Only available in interlis model_data since 2.4
-    Multi: Optional[bool] = field(
+    Multi: bool | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
 
@@ -72,15 +71,15 @@ class LineType(DomainType):
     #  prevent limits of float definition in interlis 0.00 .. 1.00 since
     #  we need a simple arbitrary float value. Thats why we cast the value to
     #  float here silently
-    MaxOverlap: Optional[float] = field(
+    MaxOverlap: float | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
-    Multi: Optional[bool] = field(
+    Multi: bool | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    CoordType_ref: Optional[Ref] = field(
+    CoordType_ref: Ref | None = field(
         default=None,
         metadata={"name": "CoordType", "namespace": imd_namespace_map["IlisMeta16"]},
     )
@@ -105,36 +104,36 @@ class TextType(DomainType):
 
     Kind: KindEnum = field(metadata={"namespace": imd_namespace_map["IlisMeta16"]})
 
-    MaxLength: Optional[int] = field(
+    MaxLength: int | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
 
 
 @dataclass(kw_only=True)
 class NumType(DomainType, HasRef):
-    Min: Optional[str] = field(
+    Min: str | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
-    Max: Optional[str] = field(
+    Max: str | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
-    Circular: Optional[bool] = field(
+    Circular: bool | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
-    Clockwise: Optional[bool] = field(
+    Clockwise: bool | None = field(
         default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    Unit_ref: Optional[Ref] = field(
+    Unit_ref: Ref | None = field(
         default=None, metadata={"name": "Unit", "namespace": imd_namespace_map["IlisMeta16"]}
     )
-    # TODO: Implement RefSys attribute as association (called NumsRefSys in https://models.interlis.ch/core/IlisMeta16.ili)
+    # TODO: Implement RefSys attribute as association (called NumsRefSys in
+    # https://models.interlis.ch/core/IlisMeta16.ili)
 
 
 @dataclass(kw_only=True)
 class FormattedType(NumType):
-
     Format: str = field(metadata={"namespace": imd_namespace_map["IlisMeta16"]})
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
@@ -150,7 +149,6 @@ class BooleanType(DomainType):
 
 @dataclass
 class EnumType(DomainType):
-
     class OrderEnum(StrEnum):
         Unordered = auto()
         Ordered = auto()
@@ -161,10 +159,9 @@ class EnumType(DomainType):
 
 @dataclass
 class MultiValue(TypeRelatedType):
-
     @dataclass
     class _Multiplicity:
-        Multiplicity: MultiplicityElement = field(
+        Multiplicity: MultiplicityElement | None = field(
             default=None, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
         )
 

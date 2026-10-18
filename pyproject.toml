@@ -134,6 +134,10 @@ select = [
 ]
 fixable = ["ALL"]
 
+[tool.ruff.lint.per-file-ignores]
+# copied verbatim into the generated output; Expression is ABSTRACT in IlisMeta16
+"src/ili2py/writers/py/constraints.py" = ["B024"]
+
 [tool.coverage.run]
 source = ["ili2py"]
 
@@ -150,3 +154,17 @@ exclude_lines = [
 mypy_path = "src"
 explicit_package_bases = true
 show_error_codes = true
+
+[[tool.mypy.overrides]]
+# no stubs available; PIL and cairosvg are only installed with the docs group
+module = ["autoflake", "cairosvg", "PIL", "PIL.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# INTERLIS 2.3 XTF reader: broken since the IMD reader switched to xsdata (d285e48), it is
+# written against the old hand-written ModelData. To be rewritten, see PLAN-interlis23-reader.md
+module = [
+    "ili2py.interfaces.interlis.interlis_23.generator",
+    "ili2py.readers.interlis_23.xtf.xsdata",
+]
+ignore_errors = true

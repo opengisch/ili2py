@@ -1,7 +1,7 @@
 import logging
 from abc import ABC
 from dataclasses import dataclass, field
-from typing import Any, Tuple
+from typing import Any
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     AttrOrParam as ImdAttrOrParam,
@@ -12,7 +12,9 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 impor
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     BooleanType as ImdBooleanType,
 )
-from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import Class as ImdClass
+from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
+    Class as ImdClass,
+)
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     ClassRefType as ImdClassRefType,
 )
@@ -31,7 +33,9 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 impor
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     LineType as ImdLineType,
 )
-from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import Model as ImdModel
+from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
+    Model as ImdModel,
+)
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     MultiValue as ImdMultiValue,
 )
@@ -39,7 +43,7 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 impor
     NumType as ImdNumType,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
-    RoleType,
+    Role as ImdRole,
 )
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     SubModel as ImdSubmodel,
@@ -47,7 +51,12 @@ from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 impor
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     TextType as ImdTextType,
 )
-from ili2py.mappers.helpers import Index
+from ili2py.mappers.helpers import Index, mandatory, mandatory_ref
+
+# (class tid, multiplicity, strongness, role tid) of one end of an association
+type AssociationEnd = tuple[str, str | None, str, str]
+# all ends of an association, followed by the name of the association
+type Association = list[AssociationEnd | str]
 
 
 @dataclass
@@ -67,17 +76,17 @@ class Attribute(Base):
 
     @classmethod
     def from_imd(cls, attribute: ImdAttrOrParam, index: Index):
-        type_name, mandatory = Attribute.handle_type(attribute, index)
+        type_name, is_mandatory = Attribute.handle_type(attribute, index)
         return cls(
-            name=attribute.name,
-            oid=attribute.tid,
+            name=mandatory(attribute.name),
+            oid=mandatory(attribute.tid),
             type_definition=type_name,
-            mandatory="[1]" if mandatory else "[0..1]",
+            mandatory="[1]" if is_mandatory else "[0..1]",
         )
 
     @staticmethod
-    def handle_type(attribute: ImdAttrOrParam, index: Index) -> Tuple[str, bool]:
-        type_definition = index.index[attribute.type_value.ref]
+    def handle_type(attribute: ImdAttrOrParam, index: Index) -> tuple[str, bool]:
+        type_definition = index.index[mandatory_ref(attribute.type_value)]
         name = Attribute.handle_type_trail(type_definition, index)
         return name, type_definition.mandatory
 
@@ -102,9 +111,11 @@ class Attribute(Base):
             return "String"
         elif isinstance(type_definition, ImdFormattedType):
             if type_definition.super and type_definition.name == "TYPE":
-                return Attribute.handle_type_trail(index.index[type_definition.super.ref], index)
+                return Attribute.handle_type_trail(
+                    index.index[type_definition.super.ref], index
+                )
             else:
-                return type_definition.name
+                return mandatory(type_definition.name)
         elif isinstance(type_definition, ImdBlackboxType):
             return "BlackBox"
         elif isinstance(type_definition, ImdNumType):
@@ -112,25 +123,22 @@ class Attribute(Base):
         elif isinstance(type_definition, ImdBooleanType):
             return "Boolean"
         elif isinstance(type_definition, ImdMultiValue):
-            return index.index[type_definition.base_type.ref].name
-        elif isinstance(type_definition, ImdEnumType):
+            return index.index[mandatory_ref(type_definition.base_type)].name
+        elif isinstance(type_definition, (ImdEnumType, ImdEnumTreeValueType)):
             return "Enumeration"
-        elif isinstance(type_definition, ImdEnumTreeValueType):
-            return "Enumeration"
-        elif isinstance(type_definition, ImdCoordType):
+        elif isinstance(type_definition, (ImdCoordType, ImdLineType)):
             if type_definition.super and type_definition.name == "TYPE":
-                return Attribute.handle_type_trail(index.index[type_definition.super.ref], index)
+                return Attribute.handle_type_trail(
+                    index.index[type_definition.super.ref], index
+                )
             else:
-                return type_definition.name
-        elif isinstance(type_definition, ImdLineType):
-            if type_definition.super and type_definition.name == "TYPE":
-                return Attribute.handle_type_trail(index.index[type_definition.super.ref], index)
-            else:
-                return type_definition.name
+                return mandatory(type_definition.name)
         elif isinstance(type_definition, ImdClassRefType):
             return index.index[index.class_related_type[type_definition.tid]].name
         else:
-            logging.debug(f"Type was not handled correctly for UML preparation: {type_definition}")
+            logging.debug(
+                f"Type was not handled correctly for UML preparation: {type_definition}"
+            )
             return "UNKNOWN"
 
 
@@ -150,29 +158,32 @@ class Class(Base):
         association_attributes = []
         association_oids = index.associated_classes.get(class_definition.tid, [])
         for association_oid in association_oids:
-            for role_oid, related_class_oid, strongness, min, max in index.association_bucket[
-                association_oid
-            ]:
+            for (
+                role_oid,
+                related_class_oid,
+                _strongness,
+                _min,
+                _max,
+            ) in index.association_bucket[association_oid]:
                 if related_class_oid != class_definition.tid:
-                    role_object: RoleType = index.index[role_oid]
-                    min = role_object.multiplicity.multiplicity.min
-                    if min is None:
-                        min = 0
-                    max = role_object.multiplicity.multiplicity.max
-                    if max is None:
-                        max = "*"
+                    role_object: ImdRole = index.index[role_oid]
+                    multiplicity = Index.role_multiplicity(role_object)
+                    minimum = multiplicity.min or 0
+                    maximum = "*" if multiplicity.max is None else multiplicity.max
                     association_attributes.append(
                         Attribute(
-                            oid=role_object.tid,
-                            name=role_object.name,
+                            oid=role_oid,
+                            name=mandatory(role_object.name),
                             type_definition="Ref",
-                            mandatory=f"{min}...{max}" if min != max else f"{min}",
+                            mandatory=f"{minimum}...{maximum}"
+                            if minimum != maximum
+                            else f"{minimum}",
                         )
                     )
 
         return cls(
-            name=class_definition.name,
-            oid=class_definition.tid,
+            name=mandatory(class_definition.name),
+            oid=mandatory(class_definition.tid),
             inherits_from=class_definition.super.ref if class_definition.super else None,
             attributes=attributes,
             association_attributes=association_attributes,
@@ -180,31 +191,13 @@ class Class(Base):
 
 
 @dataclass
-class TopicGroup(Base):
+class Group(Base, ABC):
     """
-    Represents an ili:Topic
+    Common base of ili:Model and ili:Topic
     """
 
     classes: list[Class]
-    associations: list[str]
-
-    @classmethod
-    def from_imd(cls, sub_model: ImdSubmodel, index: Index):
-        classes = []
-        associations = []
-
-        if index.class_in_package.get(sub_model.tid):
-            for element_tid in index.class_in_package[sub_model.tid]:
-                element = index.index[element_tid]
-                cls.handle_class(classes, element, index)
-        if index.association_in_package.get(sub_model.tid):
-            for element_tid in index.association_in_package[sub_model.tid]:
-                element = index.index[element_tid]
-                cls.handle_association(associations, element, index)
-
-        return cls(
-            name=sub_model.name, oid=sub_model.tid, classes=classes, associations=associations
-        )
+    associations: list[Association]
 
     @staticmethod
     def handle_class(classes: list[Class], element: Any, index: Index):
@@ -213,13 +206,13 @@ class TopicGroup(Base):
     @classmethod
     def handle_association(
         cls,
-        associations: list[list[Tuple[str, str, str]]],
+        associations: list[Association],
         association: ImdClass,
         index: Index,
     ):
         if index.association_bucket.get(association.tid):
-            association_string = []
-            for role_tid, class_tid, strongness, min, max in index.association_bucket[
+            association_string: Association = []
+            for role_tid, class_tid, _strongness, _min, _max in index.association_bucket[
                 association.tid
             ]:
                 role = index.index[role_tid]
@@ -234,7 +227,7 @@ class TopicGroup(Base):
                 association_string.append(
                     (related_class.tid, multiplicity_string, strongness_string, role_tid)
                 )
-            association_string.append(association.name)
+            association_string.append(mandatory(association.name))
             associations.append(association_string)
 
     @staticmethod
@@ -249,7 +242,8 @@ class TopicGroup(Base):
         elif minimum == 1 and maximum is None:
             return "1..*"
         elif minimum == 0 and maximum is None:
-            # Cardinality / Multiplicity '0..*' is not implemented in mermaid directly we deliver empty string
+            # Cardinality / Multiplicity '0..*' is not implemented in mermaid directly we
+            # deliver empty string
             return "0..*"
         elif minimum is None and maximum is None:
             return "*"
@@ -259,7 +253,8 @@ class TopicGroup(Base):
     @staticmethod
     def render_strongness(strongness: str):
         if strongness == "Assoc":
-            # TODO: decide if we want to show direction of association with arrows at the end of the connector
+            # TODO: decide if we want to show direction of association with arrows at the end
+            # of the connector
             logging.debug("Association is drawn without arrows currently!")
             return ""
         elif strongness == "Aggr":
@@ -272,19 +267,46 @@ class TopicGroup(Base):
 
 
 @dataclass
-class ModelGroup(TopicGroup):
+class TopicGroup(Group):
+    """
+    Represents an ili:Topic
+    """
+
+    @classmethod
+    def from_imd(cls, sub_model: ImdSubmodel, index: Index):
+        classes: list[Class] = []
+        associations: list[Association] = []
+
+        if index.class_in_package.get(sub_model.tid):
+            for element_tid in index.class_in_package[sub_model.tid]:
+                element = index.index[element_tid]
+                cls.handle_class(classes, element, index)
+        if index.association_in_package.get(sub_model.tid):
+            for element_tid in index.association_in_package[sub_model.tid]:
+                element = index.index[element_tid]
+                cls.handle_association(associations, element, index)
+
+        return cls(
+            name=mandatory(sub_model.name),
+            oid=mandatory(sub_model.tid),
+            classes=classes,
+            associations=associations,
+        )
+
+
+@dataclass
+class ModelGroup(Group):
     """
     Represents an ili:Model
     """
 
     topic_groups: list[TopicGroup]
-    associations: list[str]
 
     @classmethod
     def from_imd(cls, model: ImdModel, index: Index):
-        topics = []
-        classes = []
-        associations = []
+        topics: list[TopicGroup] = []
+        classes: list[Class] = []
+        associations: list[Association] = []
         if index.submodel_in_package.get(model.tid):
             for element_tid in index.submodel_in_package[model.tid]:
                 element = index.index[element_tid]
@@ -298,8 +320,8 @@ class ModelGroup(TopicGroup):
                 element = index.index[element_tid]
                 cls.handle_association(associations, element, index)
         return cls(
-            name=model.name,
-            oid=model.tid,
+            name=mandatory(model.name),
+            oid=mandatory(model.tid),
             topic_groups=topics,
             classes=classes,
             associations=associations,
@@ -325,5 +347,7 @@ class Diagram(Base):
         for model in index.types_bucket["Model"]:
             models.append(ModelGroup.from_imd(model, index))
         return cls(
-            name=", ".join([model.name for model in models]), oid="diagram", model_groups=models
+            name=", ".join([model.name for model in models]),
+            oid="diagram",
+            model_groups=models,
         )
