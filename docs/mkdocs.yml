@@ -25,15 +25,16 @@ nav:
       - "Report (Nov '23)": documents/report/report.md
   - "DEV Guide":
       - "Python Classes usage": dev_guide/python_classes.md
-  - Code: reference/
 
 theme:
   name: material
+  variant: classic
   logo: assets/img/logo.1.svg
   favicon: assets/img/logo.1.svg
   features:
     - navigation.tabs
     - navigation.tabs.sticky
+    - navigation.indexes
     - search.suggest
     - search.highlight
   palette:
@@ -47,19 +48,12 @@ theme:
         name: Switch to light mode
 
 plugins:
-  - search
   - autorefs
-  - mermaid2
-  - gen-files:
-      scripts:
-        - scripts/gen_ref_pages.py
   - glightbox:
       auto_caption: true       # Untertitel automatisch aus dem Bildtitel
       touchNavigation: true
       loop: true
       effect: zoom
-  - literate-nav:
-      nav_file: SUMMARY.md
   - mkdocstrings:
       default_handler: python
       handlers:
@@ -74,8 +68,12 @@ plugins:
             show_root_heading: true
             show_root_full_path: false
             docstring_style: google  # optional
-
-  - section-index
+  - api-autonav:
+      modules: ['../src/ili2py']
+      exclude:
+        - 're:^ili2py(?!\.interfaces\.interlis\.interlis_24\.ilismeta16(\.|$))'
+      nav_section_title: Code
+      nav_item_prefix: ""
 
 
 markdown_extensions:
@@ -83,7 +81,11 @@ markdown_extensions:
   - attr_list
   - mkdocs-click
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.highlight:

@@ -50,7 +50,7 @@ classifiers = [
 
 ### Dependency Constraints, aka Requirements ###
 dependencies = [
-    "click==8.1.7",
+    "click==8.1.8",
     "xsdata[cli,lxml,soap]==25.7",
     # formatting of the generated python code (writers/py/render.py)
     "autoflake==2.4.0",
@@ -79,20 +79,15 @@ test = [
 ]
 # Docs: dev and build dependencies
 docs = [
-    "mkdocs==1.6.1",
-    "mkdocs-material==9.7.6",
-    "mkdocstrings==1.0.3",
-    "mkdocstrings-python==2.0.3",
+    "pillow==12.0.0",
+    "cairosvg==2.8.2",
+    "zensical==0.0.71",
+    "mkdocs-api-autonav==0.4.0",
+    "mkdocstrings==1.0.7",
+    "mkdocstrings-python==2.0.9",
     "mkdocs-autorefs==1.4.4",
-    "mkdocs-gen-files==0.6.1",
-    "mkdocs-literate-nav==0.6.3",
-    "mkdocs-section-index==0.3.11",
-    "mkdocs-macros-plugin==1.0.5",
-    "mkdocs-mermaid2-plugin==1.1.1",
     "mkdocs-click==0.9.0",
     "mkdocs-glightbox==0.5.2",
-    "pillow==12.0.0",
-    "cairosvg==2.8.2"
 ]
 
 [tool.setuptools.dynamic]
