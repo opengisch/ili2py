@@ -5,6 +5,29 @@ In general there are 2 ways to use ili2py:
 - Docker container
 - as a library
 
+## Install
+
+ili2py is published on PyPI as `interlis2py` (the name `ili2py` is not available on PyPI). Import package and command line tool are `ili2py`. Requires Python >= 3.12.
+
+```shell
+pip install interlis2py
+# or with uv in your project
+uv add interlis2py
+# or as standalone command line tool
+uv tool install interlis2py
+```
+
+```shell
+# show help about ili2py in general
+ili2py --help
+```
+
+```python
+import ili2py
+```
+
+The binaries for Linux, macOS and Windows are attached to the [releases on GitHub](https://github.com/rudert-geoinformatik/ili2py/releases), see [CLI (Binary version)](cli-binary.md).
+
 ## Quickstart
 
 The following sections will guide you to quickstart the project.

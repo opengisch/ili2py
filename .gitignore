@@ -37,6 +37,7 @@ src/ili2py/test3.py
 !.generated/.gitkeep
 
 src/ili2py_interface
+src/ili2py/_version.py
 
 tests/data/*/*.py
 tests/data/models/*/*.xtf

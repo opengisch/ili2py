@@ -17,8 +17,15 @@ WORKDIR /app
 COPY pyproject.toml uv.lock /app/
 RUN uv sync --locked --no-dev --no-install-project
 
+# the version comes from the git tags via setuptools-scm, so git is needed while installing the project.
+# without .git (e.g. built from a tarball) pass the version: --build-arg SETUPTOOLS_SCM_PRETEND_VERSION=0.1.0
+ARG SETUPTOOLS_SCM_PRETEND_VERSION
 COPY . /app
-RUN uv sync --locked --no-dev
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && uv sync --locked --no-dev \
+    && apt-get purge -y --auto-remove git \
+    && rm -rf /var/lib/apt/lists/*
 
 USER 1000
 

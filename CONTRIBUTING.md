@@ -225,6 +225,22 @@ The roadmap located [here](https://github.com/rudert-geoinformatik/ili2py/milest
 
 Due dates are flexible.
 
-### Process: Release:
+### Process: Release
 
-* Follow semantic versioning. Look at: [http://semver.org](http://semver.org)
+* Follow semantic versioning. Look at: [http://semver.org](http://semver.org). We stay on `0.x` while the API is still changing.
+* The git tag is the only source of the version. setuptools-scm derives it at build time, nobody writes a version into the code.
+* Untagged builds get a dev version like `0.1.1.dev3+g1a2b3c4`.
+
+Releasing:
+
+1. Make sure everything for the release is merged to `master`. There is no changelog to update: the release notes are generated from the merged pull requests, so give pull requests meaningful titles.
+2. Tag and push:
+
+```bash
+git tag -a vX.Y.Z -m "vX.Y.Z"
+git push origin vX.Y.Z
+```
+
+Alternatively create the release with a new tag in the GitHub UI.
+
+3. CI builds and tests, creates the GitHub release with generated release notes, binaries, wheel and sdist and publishes the package to PyPI as `interlis2py`.
