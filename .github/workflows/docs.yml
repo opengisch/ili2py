@@ -19,10 +19,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Checkout Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
         with:
           python-version: '3.12'
+          enable-cache: true
 
       - name: Install Python requirements
         run: |

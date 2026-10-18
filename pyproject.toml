@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 ## Also renders on pypi as 'subtitle'
 [project]
 name = "ili2py"
-dynamic = ["version"]
+dynamic = ["version", "readme"]
 description = "Your pythonic gateway to INTERLIS"
 authors = [
     {name="Clemens Rudert", email="rudert-geoinformatik@posteo.ch"}
@@ -50,35 +50,35 @@ classifiers = [
 
 ### Dependency Constraints, aka Requirements ###
 dependencies = [
-    "six==1.16.0",
     "click==8.1.7",
     "xsdata[cli,lxml,soap]==25.7",
+    # formatting of the generated python code (writers/py/render.py)
+    "autoflake==2.4.0",
     "black==25.1.0",
     "isort==6.0.1",
-    "click",
-    "black",
-    "autoflake",
     # logging
     "rich"
 ]
-optional-dependencies.dev = [
-    "setuptools-scm>=8",
+
+[dependency-groups]
+dev = [
     "pre-commit==4.1.0",
-    "pyinstaller"
+    "pyinstaller",
+    "ruff==0.17.1",
+    "mypy==1.18.2"
 ]
 # Test: packages imported in test code and packages required for the "test runner"
-optional-dependencies.test = [
+test = [
     "pytest>=6.2.4",
     "pytest-cov>=2.12",
     "pytest-explicit~=1.0.1",
     "pytest-xdist>=1.34",
     "pytest-click>=1.1.0",
     "pytest-run-subprocess==0.10.0",
-    "pytest-resource-path==1.4.0",
-    "mypy==1.18.2"
+    "pytest-resource-path==1.4.0"
 ]
 # Docs: dev and build dependencies
-optional-dependencies.docs = [
+docs = [
     "mkdocs==1.6.1",
     "mkdocs-material==9.7.6",
     "mkdocstrings==1.0.3",
@@ -120,9 +120,6 @@ explicit-only = [
 "resource-path.directory-name-test-resources" = "data"
 
 
-[tool.software-release]
-version_variable = "src/georama/__init__.py:__version__"
-
 [tool.ruff]
 line-length = 95
 target-version = "py312"
@@ -141,3 +138,20 @@ select = [
     "I",    # isort
 ]
 fixable = ["ALL"]
+
+[tool.coverage.run]
+source = ["ili2py"]
+
+[tool.coverage.report]
+show_missing = true
+precision = 2
+omit = ["*migrations*"]
+exclude_lines = [
+    "raise NotImplementedError",
+    "raise NotImplemented",
+]
+
+[tool.mypy]
+mypy_path = "src"
+explicit_package_bases = true
+show_error_codes = true

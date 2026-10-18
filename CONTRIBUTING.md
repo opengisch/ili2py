@@ -7,7 +7,7 @@ Contributions are welcome :)
 * [Types of Contributions](#Types-of-Contributions)
 * [Contributor Setup](#Setting-Up-the-Code-for-Local-Development)
 * [Contributor Guidelines](#Contributor-Guidelines)
-* [Contributor Testing](#Testing-with-tox)
+* [Contributor Testing](#Testing)
 * [Core Committer Guide](#Core-Committer-Guide)
 
 
@@ -45,8 +45,7 @@ ili2py could always use more documentation, whether as part of the official ili2
 If you want to review your changes on the documentation locally, you can do:
 
 ```bash
-python3 -m pip install --user tox
-tox -e live-html
+make doc-serve
 ```
 
 This will compile the documentation (into html) and start watching the files for changes, recompiling as you save.
@@ -73,13 +72,12 @@ Here's how to set up `ili2py` for local development.
 git clone git@github.com:rudert-geoinformatik/ili2py.git
 ```
 
-3. Install your local copy into a virtualenv. Assuming you have virtualenv installed, this is how you set up your fork for local development:
+3. Install your local copy with [uv](https://docs.astral.sh/uv/). This creates `.venv` with the package (editable) and the `dev` and `test` dependency groups:
 
 ```bash
 cd ili2py
-virtualenv env --python=python3
-source env/bin/activate
-pip install -e .
+make install-test
+uv run pre-commit install
 ```
 
 4. Create a branch for local development:
@@ -93,22 +91,18 @@ Now you can make your changes locally.
 1. When you're done making changes, check that your changes pass the tests locally:
 
 ```bash
-pip install tox
-alias tox='PKG_VERSION=$(./scripts/parse_version.py) tox'
-tox
+make test
+make lint
+make check
 ```
 
-Please note that tox runs test test suite against multiple python versions, if they are found available on the host machine.
-
-If you want to produce a built tar.gz and wheel distributions:
+`make format` applies the ruff fixes and formatting. If you want to produce a built tar.gz and wheel distributions:
 
 ```bash
-tox -e check && tox -e build
+make build
 ```
 
-1. Ensure that your feature or commit is fully covered by tests. Check the coverage report that should be visible on the console when you run tox
-
-You report will be placed to `htmlcov` directory. Please do not include this directory to your commits, accidentally.
+1. Ensure that your feature or commit is fully covered by tests. Check the coverage report that is shown on the console when you run `make test-coverage`.
 
 1. Commit your changes and push your branch to GitHub:
 
@@ -139,29 +133,26 @@ Before you submit a pull request, check that it meets these guidelines:
 * Composition over Inheritance
 
 
-## Testing with tox
+## Testing
 
-Tox uses pytest under the hood, hence it supports the same syntax for selecting tests.
+Tests run with pytest, see the [pytest usage docs](https://docs.pytest.org/en/stable/how-to/usage.html) for selecting tests.
 
-For further information please consult the [pytest usage docs](http://pytest.org/en/latest/example/index.html).
-
-
-To run all tests using various versions of python in virtualenvs defined in tox.ini, just run tox:
+To run all tests:
 
 ```bash
-tox
+make test
 ```
 
-To run all tests using python 3.8:
+To only run test cases matching the string 'smoke_test':
 
 ```bash
-tox -e py38
+uv run --group test pytest -k 'smoke_test'
 ```
 
-To only run test cases matching the string 'smoke_test', using python 3.8:
+To run the tests with another python version (e.g. 3.13):
 
 ```bash
-tox -e py38 -- -k 'smoke_test'
+uv run --isolated --python 3.13 --group test pytest
 ```
 
 

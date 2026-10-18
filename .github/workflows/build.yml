@@ -26,10 +26,11 @@ jobs:
         run: |
           sudo npm install -g @mermaid-js/mermaid-cli
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.13"
+          enable-cache: true
       - name: Build Artifacts
         run: |
           echo "{\"executablePath\": \"$(ls -d ~/.cache/puppeteer/chrome/linux-*/chrome-linux*/chrome | head -n 1)\", \"args\": [\"--no-sandbox\", \"--disable-setuid-sandbox\"]}" > puppeteer-config.json
@@ -57,10 +58,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v10
         with:
           python-version: "3.13"
+          enable-cache: true
 
       - name: Install dependencies (Linux/MacOS)
         if: runner.os != 'Windows'
@@ -87,16 +89,13 @@ jobs:
 
       - name: Install dependencies (Windows)
         if: runner.os == 'Windows'
-        shell: powershell
         run: |
-          python -m venv .venv
-          .venv\Scripts\python.exe -m pip install --upgrade pip wheel setuptools
-          .venv\Scripts\pip.exe install -e .[dev]
+          uv sync --locked
 
       - name: Build binary (Windows)
         if: runner.os == 'Windows'
         run: |
-          .venv\Scripts\pyinstaller --name ili2py --onefile --noconfirm --add-data "src\ili2py:ili2py" src\ili2py\cli.py
+          uv run --locked pyinstaller --name ili2py --onefile --noconfirm --add-data "src\ili2py:ili2py" src\ili2py\cli.py
 
       - name: Test binary (Windows)
         if: runner.os == 'Windows'
