@@ -81,16 +81,11 @@ format:
 
 .PHONY: doc-html
 doc-html: $(DOCS_CONFIGURATION)
-	rm -rf docs/site
-	$(UV_RUN) --no-dev --group docs mkdocs build -f $(DOCS_CONFIGURATION) -d site
-
-.PHONY: doc-gh-deploy
-doc-gh-deploy: $(DOCS_CONFIGURATION)
-	$(UV_RUN) --no-dev --group docs mkdocs gh-deploy -f $(DOCS_CONFIGURATION) -d site --force
+	$(UV_RUN) --no-dev --group docs zensical build --clean --strict -f $(DOCS_CONFIGURATION)
 
 .PHONY: doc-serve
 doc-serve: $(DOCS_CONFIGURATION)
-	$(UV_RUN) --no-dev --group docs mkdocs serve -f $(DOCS_CONFIGURATION)
+	$(UV_RUN) --no-dev --group docs zensical serve -f $(DOCS_CONFIGURATION)
 
 .PHONY: updates
 updates:
