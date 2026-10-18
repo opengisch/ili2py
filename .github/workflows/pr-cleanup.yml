@@ -1,0 +1,27 @@
+name: PR cleanup
+
+on:
+  # pull_request_target so the token can delete artifacts for PRs from forks too.
+  # No code from the PR is checked out or run here.
+  pull_request_target:
+    types: [closed]
+
+permissions:
+  actions: write
+
+jobs:
+  delete-pr-artifacts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete artifacts of this PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SUFFIX: -pr${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$REPO/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.name | endswith(\"$SUFFIX\")) | \"\(.id) \(.name)\"" |
+          while read -r id name; do
+            echo "Deleting artifact $id ($name)"
+            gh api -X DELETE "repos/$REPO/actions/artifacts/$id"
+          done

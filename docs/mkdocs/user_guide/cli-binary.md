@@ -3,6 +3,13 @@
 
 The binary version of ili2py cli can be downloaded from the [Releases Page on GitHub](https://github.com/rudert-geoinformatik/ili2py/releases)
 
+The files are named by release:
+
+- `ili2py-<os>-vX.Y.Z` for a released version, e.g. `ili2py-linux-v0.1.0`
+- `ili2py-<os>-latest` in the release `latest`, which is rebuilt from the current `master`
+
+The examples below use the short names `ili2py-linux`, `ili2py-macos` and `ili2py-windows.exe`. Rename the downloaded file or use its full name.
+
 As described above, the _Command Line Interface_ of ili2py offerse two sub commands besides the main command:
 
 - `diagram`
@@ -44,21 +51,21 @@ With `-V`/`--version` you can output the used version.
 
 ```shell
 # Linux
-./ili2py-linux --V
+./ili2py-linux -V
 ./ili2py-linux --version
 
 # Mac
-./ili2py-macos --V
+./ili2py-macos -V
 ./ili2py-macos --version
 
 # Windows
-.\ili2py-windows.exe --V
+.\ili2py-windows.exe -V
 .\ili2py-windows.exe --version
 ```
 
 Output:
 ```
-ili2py 0.0.1 from ./ili2py-linux (Python 3.13.7)
+ili2py X.Y.Z from ./ili2py-linux (Python 3.13.7)
 ```
 
 !!! Note

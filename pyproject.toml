@@ -8,7 +8,7 @@ build-backend = "setuptools.build_meta"
 # Information required for building (sdist/wheel)
 ## Also renders on pypi as 'subtitle'
 [project]
-name = "ili2py"
+name = "interlis2py"
 dynamic = ["version", "readme"]
 description = "Your pythonic gateway to INTERLIS"
 authors = [
@@ -60,6 +60,9 @@ dependencies = [
     "rich"
 ]
 
+[project.scripts]
+ili2py = "ili2py.cli:cli"
+
 [dependency-groups]
 dev = [
     "pre-commit==4.1.0",
@@ -95,6 +98,9 @@ readme = {file = ["README.md", "CHANGELOG.md"]}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools_scm]
+version_file = "src/ili2py/_version.py"
 
 # TOOLS
 [tool.pytest.ini_options]
