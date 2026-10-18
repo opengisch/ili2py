@@ -16,20 +16,7 @@ def create_uml_diagram(
     depth: int | None = None,
 ):
     ili_version = handle_model_versions(index)
-    if ili_version == "2.3":
-        uml_diagram(
-            diagram,
-            index,
-            model_names,
-            flavour,
-            file_name,
-            output_path,
-            direction=direction,
-            linetype=linetype,
-            multiplier=multiplier,
-            depth=depth,
-        )
-    elif ili_version == "2.4":
+    if ili_version == "2.3" or ili_version == "2.4":
         uml_diagram(
             diagram,
             index,

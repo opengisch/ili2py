@@ -22,6 +22,7 @@ how you access them?
 Add that to your python script.
 ```python
 from ili2py_interface.OeREBKRM_V2_0 import RechtsStatus
+
 print(list(RechtsStatus))
 ```
 
@@ -35,6 +36,7 @@ How to access the content?
 Alter your script to.
 ```python
 from ili2py_interface.OeREBKRM_V2_0 import RechtsStatus
+
 print(list(RechtsStatus.INKRAFT.value))
 ```
 
@@ -53,6 +55,7 @@ How can we access it?
 ```python
 from ili2py_interface.OeREBKRMtrsfr_V2_0.Transferstruktur import Eigentumsbeschraenkung
 from dataclasses import fields
+
 print(fields(Eigentumsbeschraenkung)[2])
 ```
 
@@ -74,13 +77,31 @@ Alter your script:
 ```python
 from ili2py_interface.OeREBKRMtrsfr_V2_0.Transferstruktur import Eigentumsbeschraenkung
 from dataclasses import fields
-print(fields(Eigentumsbeschraenkung)[2].metadata['interlis']['type_restrictions'])
+
+print(fields(Eigentumsbeschraenkung)[2].metadata["interlis"]["type_restrictions"])
 ```
 
 This gives:
 
 ```python
-{'mandatory': True, 'kind': None, 'format': '"Year"-"Month"-"Day"', 'unit': None, 'ref_sys': None, 'clockwise': None, 'circular': None, 'abstract': False, 'final': False, 'generic': False, 'super': 'OeREBKRM_V2_0.Datum', 'type_related_type': False, 'multiplicity': {'min': 1, 'max': 1}, 'struct': 'INTERLIS.GregorianDate', 'min': '1848-1-1', 'max': '2100-12-31'}
+{
+    "mandatory": True,
+    "kind": None,
+    "format": '"Year"-"Month"-"Day"',
+    "unit": None,
+    "ref_sys": None,
+    "clockwise": None,
+    "circular": None,
+    "abstract": False,
+    "final": False,
+    "generic": False,
+    "super": "OeREBKRM_V2_0.Datum",
+    "type_related_type": False,
+    "multiplicity": {"min": 1, "max": 1},
+    "struct": "INTERLIS.GregorianDate",
+    "min": "1848-1-1",
+    "max": "2100-12-31",
+}
 ```
 
 To access the metadata of the object instance itself:

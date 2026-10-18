@@ -8,13 +8,14 @@ log = logging.getLogger(__name__)
 
 @dataclass
 class Ref:
-
     ref: str = field(metadata={"type": "Attribute", "namespace": imd_namespace_map["ili"]})
 
 
 @dataclass
 class OrderedRef(Ref):
-    order_pos: str = field(metadata={"type": "Attribute", "namespace": imd_namespace_map["ili"]})
+    order_pos: str = field(
+        metadata={"type": "Attribute", "namespace": imd_namespace_map["ili"]}
+    )
 
 
 class HasRef:
@@ -24,11 +25,12 @@ class HasRef:
 
     def resolve_refs(self, index: dict):
         """
-        References the actual object based on the unique identifier in the index. It is based currently
-        on a naming pattern. The attribute to be referenced has to be of type `Ref` and its name has to
-        end with *_ref*. Lets assume the attribute name is *Type_ref*. This method then installs a new
-        runtime attribute *Type* at `self`. In addition it installs a new runtime attribute at the referenced
-        object in our example that would be *Type_backref*. If this attribute does not exists already.
+        References the actual object based on the unique identifier in the index. It is based
+        currently on a naming pattern. The attribute to be referenced has to be of type `Ref`
+        and its name has to end with *_ref*. Lets assume the attribute name is *Type_ref*. This
+        method then installs a new runtime attribute *Type* at `self`. In addition it installs
+        a new runtime attribute at the referenced object in our example that would be
+        *Type_backref*. If this attribute does not exists already.
         This is currently always a list which is filled with the back referenced objects.
 
         TODO: handle multilevel references (currently we go only one level deep)
@@ -42,7 +44,8 @@ class HasRef:
                 reference = getattr(self, attribute_name).ref
                 if not index.get(reference, False):
                     log.info(
-                        f"Element with tid <{reference}> was not found in index. It is highly possible that it is not implemented yet"
+                        f"Element with tid <{reference}> was not found in index. "
+                        "It is highly possible that it is not implemented yet"
                     )
                 else:
                     referenced_element = index[reference]

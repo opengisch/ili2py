@@ -1,10 +1,11 @@
+from typing import Any
 from uuid import uuid4
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
 from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import HasRef
 
 
-def unwrap_tree(element: object, index: dict):
+def unwrap_tree(element: Any, index: dict[str, Any]):
     """
     A little helper method to assemble a one dimensional index with the elements unique
     identifiers *tid* as the key.
@@ -16,11 +17,13 @@ def unwrap_tree(element: object, index: dict):
         if hasattr(element, "tid"):
             # the element has already a unique identifier. we can use this in the index
             if element.tid in index:
-                raise LookupError(f"Element {element.tid} was already in tree. Thats not allowed!")
+                raise LookupError(
+                    f"Element {element.tid} was already in tree. Thats not allowed!"
+                )
         else:
-            # the element does not have a unique idendtifier (usually relations) we will set up a runtime
-            # one to make linking possible
-            setattr(element, "tid", f"{element.__class__.__name__}.{str(uuid4())}")
+            # the element does not have a unique idendtifier (usually relations) we will set up
+            # a runtime one to make linking possible
+            element.tid = f"{element.__class__.__name__}.{str(uuid4())}"
         index[element.tid] = element
         for attribute in element.__annotations__:
             member = element.__getattribute__(attribute)
@@ -50,10 +53,11 @@ def index_modeldata(transfer: ImdTransfer) -> dict:
     Args:
         transfer: The full metamodel tree of dataclass objects which should be indexed.
 
-    Returns: The index containing the already resolved references between the dataclass objects.
+    Returns: The index containing the already resolved references between the dataclass
+        objects.
     """
 
-    index = {}
+    index: dict[str, Any] = {}
     for item in transfer.datasection.ModelData:
         unwrap_tree(item, index)
 

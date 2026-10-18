@@ -1,12 +1,12 @@
 from enum import Enum
 from typing import Optional
 
-from ili2py.mappers.internal.ilismeta16.model_data.meta_elements import (
+from ili2py.mappers.internal.ilismeta16.model_data.definitions import (
     DocText,
+    Expression,
     ExtendableMe,
     MetaAttribute,
 )
-from ili2py.mappers.internal.ilismeta16.model_data.models import Expression
 
 
 class UnitKind(Enum):

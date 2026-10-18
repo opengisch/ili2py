@@ -1,8 +1,8 @@
 import logging
 import os
+from dataclasses import dataclass
 from pathlib import Path
 from random import randint
-from typing import List
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -12,44 +12,44 @@ from ili2py.writers.helpers import create_file
 
 ns_map = {"ili": "http://www.interlis.ch/INTERLIS2.3"}
 
-tool_settings = {
-    "mermaid": {
-        "postfix": "md",
-        "settings": {
-            "directions": ["LR", "RL", "TB", "BT"],
-            # currently not supported on class diagrams
-            "linetype": [],
-        },
-    },
-    "plantuml": {
-        "postfix": "puml",
-        "settings": {
-            "directions": ["top to bottom", "left to right"],
-            "linetype": ["polyline", "ortho", "spline"],
-        },
-    },
-    "plantuml_role_members": {
-        "postfix": "puml",
-        "settings": {
-            "directions": ["top to bottom", "left to right"],
-            "linetype": ["polyline", "ortho", "spline"],
-        },
-    },
-    "dot": {
-        "postfix": "dot",
-        "settings": {
-            "directions": [],
-            # currently not supported on class diagrams
-            "linetype": [],
-        },
-    },
+
+@dataclass
+class FlavourSettings:
+    postfix: str
+    directions: list[str]
+    linetype: list[str]
+
+
+tool_settings: dict[str, FlavourSettings] = {
+    "mermaid": FlavourSettings(
+        postfix="md",
+        directions=["LR", "RL", "TB", "BT"],
+        # currently not supported on class diagrams
+        linetype=[],
+    ),
+    "plantuml": FlavourSettings(
+        postfix="puml",
+        directions=["top to bottom", "left to right"],
+        linetype=["polyline", "ortho", "spline"],
+    ),
+    "plantuml_role_members": FlavourSettings(
+        postfix="puml",
+        directions=["top to bottom", "left to right"],
+        linetype=["polyline", "ortho", "spline"],
+    ),
+    "dot": FlavourSettings(
+        postfix="dot",
+        directions=[],
+        # currently not supported on class diagrams
+        linetype=[],
+    ),
 }
 
 
 def uml_diagram(
     diagram: Diagram,
     index: Index,
-    model_names: List[str],
+    model_names: list[str],
     flavour: str,
     file_name: str,
     output_path: str,
@@ -59,32 +59,29 @@ def uml_diagram(
     depth: int | None = None,
 ):
     if flavour == "mermaid":
-        selected_direction = tool_settings[flavour]["settings"]["directions"][0]
+        selected_direction = tool_settings[flavour].directions[0]
         selected_linetype = None
-    elif flavour == "plantuml":
-        selected_direction = tool_settings[flavour]["settings"]["directions"][0]
-        selected_linetype = tool_settings[flavour]["settings"]["linetype"][0]
-    elif flavour == "plantuml_role_members":
-        selected_direction = tool_settings[flavour]["settings"]["directions"][0]
-        selected_linetype = tool_settings[flavour]["settings"]["linetype"][0]
+    elif flavour == "plantuml" or flavour == "plantuml_role_members":
+        selected_direction = tool_settings[flavour].directions[0]
+        selected_linetype = tool_settings[flavour].linetype[0]
     elif flavour == "dot":
         selected_direction = None
         selected_linetype = None
     else:
         raise NotImplementedError
     if direction is not None:
-        if direction not in tool_settings[flavour]["settings"]["directions"]:
+        if direction not in tool_settings[flavour].directions:
             raise NotImplementedError
         else:
             selected_direction = direction
     if linetype is not None:
-        if linetype not in tool_settings[flavour]["settings"]["linetype"]:
+        if linetype not in tool_settings[flavour].linetype:
             raise NotImplementedError
         else:
             selected_linetype = linetype
 
     tpl_dir = os.path.join(Path(__file__).parent.joinpath("templates"), flavour)
-    env = Environment(loader=FileSystemLoader(str(tpl_dir)), autoescape=False) # nosec B701
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)), autoescape=False)  # nosec B701
     if depth is None:
         # all relevant models
         inner_model_names = index.depth_tree[-1]

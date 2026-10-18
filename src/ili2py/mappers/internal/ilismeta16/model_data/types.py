@@ -1,12 +1,13 @@
 from enum import Enum
 
-from ili2py.mappers.internal.ilismeta16.model_data.domain import LengthRange
-from ili2py.mappers.internal.ilismeta16.model_data.meta_elements import (
+from ili2py.mappers.internal.ilismeta16.model_data.definitions import (
     DocText,
+    DomainType,
     ExtendableMe,
     MetaAttribute,
+    Package,
 )
-from ili2py.mappers.internal.ilismeta16.model_data.models import DomainType, Package
+from ili2py.mappers.internal.ilismeta16.model_data.domain import LengthRange
 from ili2py.mappers.internal.ilismeta16.model_data.units import Unit
 
 
@@ -41,8 +42,8 @@ class TextType(DomainType):
             name,
             abstract,
             final,
-            generic,
             mandatory,
+            generic,
             documentation=documentation,
             meta_attributes=meta_attributes,
             element_in_package=element_in_package,

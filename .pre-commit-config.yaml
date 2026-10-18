@@ -1,3 +1,6 @@
+# reference data and raw xsdata output are kept as delivered
+exclude: ^(tests/data/|src/ili2py/interfaces/interlis/interlis_24/ilismeta/)
+
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
@@ -13,3 +16,13 @@ repos:
       - id: ruff-check
         args: [ --fix ]
       - id: ruff-format
+
+  # uses the project environment, so the result matches `make check` and CI
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run --locked --group test mypy src/ili2py tests
+        language: system
+        types: [python]
+        pass_filenames: false

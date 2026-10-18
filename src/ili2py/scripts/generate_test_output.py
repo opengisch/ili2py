@@ -1,4 +1,6 @@
-"""This script assumes plantuml and mmdc (mermaid cli) is installed and available on the system!"""
+"""
+This script assumes plantuml and mmdc (mermaid cli) is installed and available on the system!
+"""
 
 import logging
 import os.path
@@ -7,6 +9,7 @@ from pathlib import Path
 
 from ili2py.mappers.helpers import Index
 from ili2py.readers.interlis_24.ilismeta16.xsdata import Imd16Reader
+from ili2py.scripts.config import DiagramConfig, ModelSet
 from ili2py.writers.diagram.interlis import uml_diagram
 from ili2py.writers.diagram.interlis.uml import Diagram
 from ili2py.writers.py.python_structure import Library
@@ -22,10 +25,10 @@ dirpath = Path(output_path)
 if dirpath.exists() and dirpath.is_dir():
     shutil.rmtree(dirpath)
 print(os.getcwd())
-data = [
-    {
-        "imd": "tests/data/models/DMAVTYM_Alles_V1_0/DMAVTYM_Alles_V1_0.imd",
-        "model_names": [
+data: list[ModelSet[list[str]]] = [
+    ModelSet(
+        imd="tests/data/models/DMAVTYM_Alles_V1_0/DMAVTYM_Alles_V1_0.imd",
+        model_names=[
             "DMAV_Bodenbedeckung_V1_0",
             "DMAV_DauerndeBodenverschiebungen_V1_0",
             "DMAV_Dienstbarkeitsgrenzen_V1_0",
@@ -43,11 +46,11 @@ data = [
             "DMAV_Toleranzstufen_V1_0",
             "DMAVSUP_UntereinheitGrundbuch_V1_0",
         ],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/DMAVTYM_Tous_V1_0/DMAVTYM_Tous_V1_0.imd",
-        "model_names": [
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/DMAVTYM_Tous_V1_0/DMAVTYM_Tous_V1_0.imd",
+        model_names=[
             "DMAV_CouvertureDuSol_V1_0",
             "DMAV_TerritoiresEnMouvementPermanent_V1_0",
             "DMAV_AssiettesDeServitudes_V1_0",
@@ -65,12 +68,12 @@ data = [
             "HoheitsgrenzenLV_V1_0",
             "OfficialIndexOfLocalities_V1_0",
         ],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/ElektrischeAnlagenNennspannungUeber36kV_V1.imd",
-        "model_names": ["ElektrischeAnlagenNennspannungUeber36kV_V1"],
-        "xtf": [
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/ElektrischeAnlagenNennspannungUeber36kV_V1.imd",  # noqa: E501
+        model_names=["ElektrischeAnlagenNennspannungUeber36kV_V1"],
+        xtf=[
             "tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/arosaenergie.xtf",
             "tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/axpohydrosurselva.xtf",
             "tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/axpo.xtf",
@@ -97,69 +100,71 @@ data = [
             "tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/swissgrid.xtf",
             "tests/data/models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/yverdonenergies.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Fruchtfolgeflaechen_V1/Fruchtfolgeflaechen_V1.imd",
-        "model_names": ["Fruchtfolgeflaechen_LV95_V1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Fruchtfolgeflaechen_V1/Fruchtfolgeflaechen_V1.imd",
+        model_names=["Fruchtfolgeflaechen_LV95_V1"],
+        xtf=[
             "tests/data/models/Fruchtfolgeflaechen_V1/NE_068_surfaces_assolement_2024.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Gewaesserraum_V1_1/Gewaesserraum_LegendeEintrag_V1_1.imd",
-        "model_names": ["Gewaesserraum_LegendeEintrag_V1_1"],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/Gewaesserraum_V1_1/Gewaesserraum_V1_1.imd",
-        "model_names": ["Gewaesserraum_V1_1"],
-        "xtf": ["tests/data/models/Gewaesserraum_V1_1/gewaesserraum_v1_1_be.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Grundwasservorkommen_V2_0/Grundwasservorkommen_V2_0.imd",
-        "model_names": ["Grundwasservorkommen_V2_0"],
-        "xtf": ["tests/data/models/Grundwasservorkommen_V2_0/grundwasservorkommen_v2_0_be.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Hazard_Mapping_V1_3/Hazard_Mapping_V1_3.imd",
-        "model_names": ["Hazard_Mapping_LV95_V1_3"],
-        "xtf": ["tests/data/models/Hazard_Mapping_V1_3/NE_166_dangers_nat_1_3_NE.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung_V1_0.imd",
-        "model_names": ["Holznutzungsbewilligung_V1_0"],
-        "xtf": ["tests/data/models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.imd",
-        "model_names": ["InventarWasserentnahmen_LV95_V1_1"],
-        "xtf": ["tests/data/models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Kantonale_Ausnahmetransportrouten_V1_0/ExceptionalLoadsRoute_V1.imd",
-        "model_names": ["ExceptionalLoadsRoute_LV95_V1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Gewaesserraum_V1_1/Gewaesserraum_LegendeEintrag_V1_1.imd",
+        model_names=["Gewaesserraum_LegendeEintrag_V1_1"],
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/Gewaesserraum_V1_1/Gewaesserraum_V1_1.imd",
+        model_names=["Gewaesserraum_V1_1"],
+        xtf=["tests/data/models/Gewaesserraum_V1_1/gewaesserraum_v1_1_be.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/Grundwasservorkommen_V2_0/Grundwasservorkommen_V2_0.imd",
+        model_names=["Grundwasservorkommen_V2_0"],
+        xtf=["tests/data/models/Grundwasservorkommen_V2_0/grundwasservorkommen_v2_0_be.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/Hazard_Mapping_V1_3/Hazard_Mapping_V1_3.imd",
+        model_names=["Hazard_Mapping_LV95_V1_3"],
+        xtf=["tests/data/models/Hazard_Mapping_V1_3/NE_166_dangers_nat_1_3_NE.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung_V1_0.imd",
+        model_names=["Holznutzungsbewilligung_V1_0"],
+        xtf=["tests/data/models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.imd",  # noqa: E501
+        model_names=["InventarWasserentnahmen_LV95_V1_1"],
+        xtf=[
+            "tests/data/models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.xtf"
+        ],
+    ),
+    ModelSet(
+        imd="tests/data/models/Kantonale_Ausnahmetransportrouten_V1_0/ExceptionalLoadsRoute_V1.imd",  # noqa: E501
+        model_names=["ExceptionalLoadsRoute_LV95_V1"],
+        xtf=[
             "tests/data/models/Kantonale_Ausnahmetransportrouten_V1_0/NE_184_transports_exceptionnels.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Kataster_belasteter_Standorte_V1_5/KbS_V1_5.imd",
-        "model_names": ["KbS_V1_5"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Kataster_belasteter_Standorte_V1_5/KbS_V1_5.imd",
+        model_names=["KbS_V1_5"],
+        xtf=[
             "tests/data/models/Kataster_belasteter_Standorte_V1_5/NE_116_a_sites_pollues_1_5.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
-        "model_names": ["Laermempfindlichkeitsstufen_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",  # noqa: E501
+        model_names=["Laermempfindlichkeitsstufen_V1_2"],
+        xtf=[
             "tests/data/models/Laermempfindlichkeitsstufen_V1_2/NE_145_degre_sensiblite_bruit_1_2.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd",
-        "model_names": ["SIA405_LKMap_2015_LV95"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd",
+        model_names=["SIA405_LKMap_2015_LV95"],
+        xtf=[
             "tests/data/models/Leitungskataster/SBB_SIA405_LKMap_AW_AG.xtf",
             "tests/data/models/Leitungskataster/SBB_SIA405_LKMap_EV_AG.xtf",
             "tests/data/models/Leitungskataster/SBB_SIA405_LKMap_FM_AG.xtf",
@@ -167,193 +172,193 @@ data = [
             "tests/data/models/Leitungskataster/SBB_SIA405_LKMap_WH_AG.xtf",
             "tests/data/models/Leitungskataster/SBB_SIA405_LKMap_WV_AG.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/LWB_Bewirtschaftungseinheiten_V2_0/LWB_Bewirtschaftungseinheiten_V2_0.imd",
-        "model_names": ["LWB_Bewirtschaftungseinheiten_V2_0"],
-        "xtf": ["tests/data/models/LWB_Bewirtschaftungseinheiten_V2_0/NE_a_153_6.xtf"],
-    },
-    {
-        "imd": "tests/data/models/LWB_Bewirtschaftungseinheiten_V3_0/LWB_Bewirtschaftungseinheiten_V3_0.imd",
-        "model_names": ["LWB_Bewirtschaftungseinheiten_V3_0"],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0.imd",
-        "model_names": ["LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Bewirtschaftungseinheiten_V2_0/LWB_Bewirtschaftungseinheiten_V2_0.imd",  # noqa: E501
+        model_names=["LWB_Bewirtschaftungseinheiten_V2_0"],
+        xtf=["tests/data/models/LWB_Bewirtschaftungseinheiten_V2_0/NE_a_153_6.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Bewirtschaftungseinheiten_V3_0/LWB_Bewirtschaftungseinheiten_V3_0.imd",  # noqa: E501
+        model_names=["LWB_Bewirtschaftungseinheiten_V3_0"],
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0.imd",  # noqa: E501
+        model_names=["LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0"],
+        xtf=[
             "tests/data/models/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0/NE_153_3_biodiversite_qualite_II.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/LWB_Nutzungsflaechen_V2_0/LWB_Nutzungsflaechen_V2_0.imd",
-        "model_names": ["LWB_Nutzungsflaechen_V2_0"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Nutzungsflaechen_V2_0/LWB_Nutzungsflaechen_V2_0.imd",
+        model_names=["LWB_Nutzungsflaechen_V2_0"],
+        xtf=[
             "tests/data/models/LWB_Nutzungsflaechen_V2_0/NE_a_153_6.xtf",
             "tests/data/models/LWB_Nutzungsflaechen_V2_0/NE_b_153_1.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/LWB_Nutzungsflaechen_V3_0/LWB_Nutzungsflaechen_V3_0.imd",
-        "model_names": ["LWB_Nutzungsflaechen_V3_0"],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0.imd",
-        "model_names": ["LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Nutzungsflaechen_V3_0/LWB_Nutzungsflaechen_V3_0.imd",
+        model_names=["LWB_Nutzungsflaechen_V3_0"],
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0.imd",  # noqa: E501
+        model_names=["LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0"],
+        xtf=[
             "tests/data/models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/NE_a_153_5.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",
-        "model_names": ["LWB_Perimeter_Terrassenreben_V2_0"],
-        "xtf": ["tests/data/models/LWB_Perimeter_Terrassenreben_V2_0/NE_153_2.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd",
-        "model_names": ["Naturereigniskataster_MGDM_LV95_V1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",  # noqa: E501
+        model_names=["LWB_Perimeter_Terrassenreben_V2_0"],
+        xtf=["tests/data/models/LWB_Perimeter_Terrassenreben_V2_0/NE_153_2.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd",  # noqa: E501
+        model_names=["Naturereigniskataster_MGDM_LV95_V1"],
+        xtf=[
             "tests/data/models/Naturereigniskataster_V1_0/storme_interlis_export_MGDM_NE_20250728T024603.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd",
-        "model_names": ["Nutzungsplanung_V1_2"],
-        "xtf": ["tests/data/models/Nutzungsplanung_V1_2/NE_073_plans_affectation_v1_2.xtf"],
-    },
-    {
-        "imd": "tests/data/models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
-        "model_names": ["OeREBKRMtrsfr_V2_0"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd",
+        model_names=["Nutzungsplanung_V1_2"],
+        xtf=["tests/data/models/Nutzungsplanung_V1_2/NE_073_plans_affectation_v1_2.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
+        model_names=["OeREBKRMtrsfr_V2_0"],
+        xtf=[
             "tests/data/models/OeREBKRMtrsfr_V2_0/ch.bazl.kataster-belasteter-standorte-zivilflugplaetze_v2_0.oereb.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",
-        "model_names": ["PlanerischerGewaesserschutz_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",  # noqa: E501
+        model_names=["PlanerischerGewaesserschutz_V1_2"],
+        xtf=[
             "tests/data/models/Planerischer_Gewaesserschutz_V1_2/ur_uri_gwszonen_mgdm_v1_2.xtf",
             "tests/data/models/Planerischer_Gewaesserschutz_V1_2/ur_uri_gsbereiche_mgdm_v1_2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Planungszonen_v1_1/Planungszonen_V1_1.imd",
-        "model_names": ["Planungszonen_V1_1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Planungszonen_v1_1/Planungszonen_V1_1.imd",
+        model_names=["Planungszonen_V1_1"],
+        xtf=[
             "tests/data/models/Planungszonen_v1_1/ch.Planungszonen.sh.mgdm.v1_1.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd",
-        "model_names": ["LWB_Rebbaukataster_V2_0"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd",
+        model_names=["LWB_Rebbaukataster_V2_0"],
+        xtf=[
             "tests/data/models/Rebbaukataster_V2/BL_a_151_1.xtf",
             "tests/data/models/Rebbaukataster_V2/NE_151_1.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Revitalisierungen_Fliessgewaesser_V1_2/Revitalisierung_Fliessgewaesser_V1_2.imd",
-        "model_names": ["Revitalisierung_Fliessgewaesser_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Revitalisierungen_Fliessgewaesser_V1_2/Revitalisierung_Fliessgewaesser_V1_2.imd",  # noqa: E501
+        model_names=["Revitalisierung_Fliessgewaesser_V1_2"],
+        xtf=[
             "tests/data/models/Revitalisierungen_Fliessgewaesser_V1_2/revitalisierung_fliessgewaesser_v1_2_be.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd",
-        "model_names": ["Revitalisierung_Seen_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd",
+        model_names=["Revitalisierung_Seen_V1_2"],
+        xtf=[
             "tests/data/models/Revitalisierung_Seeufer_V1_2/revitalisierung_seen_v1_2_be.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Richtplan_erneuerbare_Energien_V1_0/RichtplanungErneuerbareEnergien_V1.imd",
-        "model_names": ["RichtplanungErneuerbareEnergien_V1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Richtplan_erneuerbare_Energien_V1_0/RichtplanungErneuerbareEnergien_V1.imd",  # noqa: E501
+        model_names=["RichtplanungErneuerbareEnergien_V1"],
+        xtf=[
             "tests/data/models/Richtplan_erneuerbare_Energien_V1_0/NE_PDER_FR.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/SupplySecurity_RuledAreas_V1_2/SupplySecurity_RuledAreas_V1_2.imd",
-        "model_names": ["SupplySecurity_RuledAreas_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/SupplySecurity_RuledAreas_V1_2/SupplySecurity_RuledAreas_V1_2.imd",  # noqa: E501
+        model_names=["SupplySecurity_RuledAreas_V1_2"],
+        xtf=[
             "tests/data/models/SupplySecurity_RuledAreas_V1_2/SupplySecurity_RuledAreas_V1_2.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Rodungen_Rodungsersatz_V1_1/Rodungen_V1_1.imd",
-        "model_names": ["Rodungen_V1_1"],
-        "xtf": ["tests/data/models/Rodungen_Rodungsersatz_V1_1/Rodungen.xtf"],
-    },
-    {
-        "imd": "tests/data/models/Sanierung_Wasserkraft_V1_2/SanierungWasserkraft_V1_2.imd",
-        "model_names": ["SanierungWasserkraft_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Rodungen_Rodungsersatz_V1_1/Rodungen_V1_1.imd",
+        model_names=["Rodungen_V1_1"],
+        xtf=["tests/data/models/Rodungen_Rodungsersatz_V1_1/Rodungen.xtf"],
+    ),
+    ModelSet(
+        imd="tests/data/models/Sanierung_Wasserkraft_V1_2/SanierungWasserkraft_V1_2.imd",
+        model_names=["SanierungWasserkraft_V1_2"],
+        xtf=[
             "tests/data/models/Sanierung_Wasserkraft_V1_2/NE_192_1_assainissement_force_hydraulique_v1_2.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/SIA405_Abwasser_3D_2015_2_d-20211020/SIA405_Abwasser_3D_2015_2_d-20211020.imd",
-        "model_names": ["SIA405_ABWASSER_3D_2015_LV95"],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/SIA405_LKMap_3D_2015_2_d-20180427/SIA405_LKMap_3D_2015_2_d-20180427.imd",
-        "model_names": ["SIA405_LKMap_3D_2015_LV95"],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/SIA405_Wasser_2015_2_d-20181005/SIA405_Wasser_2015_2_d-20181005.imd",
-        "model_names": ["SIA405_WASSER_2015_LV95"],
-        "xtf": [],
-    },
-    {
-        "imd": "tests/data/models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/SO_AFU_ABBAUSTELLEN_Publikation_20221103.imd",
-        "model_names": ["SO_AFU_ABBAUSTELLEN_Publikation_20221103"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/SIA405_Abwasser_3D_2015_2_d-20211020/SIA405_Abwasser_3D_2015_2_d-20211020.imd",  # noqa: E501
+        model_names=["SIA405_ABWASSER_3D_2015_LV95"],
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/SIA405_LKMap_3D_2015_2_d-20180427/SIA405_LKMap_3D_2015_2_d-20180427.imd",  # noqa: E501
+        model_names=["SIA405_LKMap_3D_2015_LV95"],
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/SIA405_Wasser_2015_2_d-20181005/SIA405_Wasser_2015_2_d-20181005.imd",  # noqa: E501
+        model_names=["SIA405_WASSER_2015_LV95"],
+        xtf=[],
+    ),
+    ModelSet(
+        imd="tests/data/models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/SO_AFU_ABBAUSTELLEN_Publikation_20221103.imd",  # noqa: E501
+        model_names=["SO_AFU_ABBAUSTELLEN_Publikation_20221103"],
+        xtf=[
             "tests/data/models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/ch.so.afu.abbaustellen.xtf"
         ],
-    },
-    {
-        "imd": "tests/data/models/Statische_Waldgrenzen_v1_2/Waldgrenzen_V1_2.imd",
-        "model_names": ["Waldgrenzen_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Statische_Waldgrenzen_v1_2/Waldgrenzen_V1_2.imd",
+        model_names=["Waldgrenzen_V1_2"],
+        xtf=[
             "tests/data/models/Statische_Waldgrenzen_v1_2/NE_157_limites_forestieres_statiques_v1_2.xtf",
             "tests/data/models/Statische_Waldgrenzen_v1_2/npl_waldgrenzen_bl_mgdm_v1.2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Stromversorgung_Netzgebiete_V1_2/stromversorgungssicherheit_netzgebiete_LV95_V1_2.imd",
-        "model_names": ["SupplySecurity_RuledAreas_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Stromversorgung_Netzgebiete_V1_2/stromversorgungssicherheit_netzgebiete_LV95_V1_2.imd",  # noqa: E501
+        model_names=["SupplySecurity_RuledAreas_V1_2"],
+        xtf=[
             "tests/data/models/Stromversorgung_Netzgebiete_V1_2/SupplySecurity_RuledAreas_V1_2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.imd",
-        "model_names": ["SZ_Lebensraum_Fisch_V2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.imd",
+        model_names=["SZ_Lebensraum_Fisch_V2"],
+        xtf=[
             "tests/data/models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd",
-        "model_names": ["SZ_Waldfeststellungen_V2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd",
+        model_names=["SZ_Waldfeststellungen_V2"],
+        xtf=[
             "tests/data/models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd",
-        "model_names": ["SZ_Waldreservate_V3"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd",
+        model_names=["SZ_Waldreservate_V3"],
+        xtf=[
             "tests/data/models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Waldabstandslinien_V1_2/Waldabstandslinien_V1_2.imd",
-        "model_names": ["Waldabstandslinien_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Waldabstandslinien_V1_2/Waldabstandslinien_V1_2.imd",
+        model_names=["Waldabstandslinien_V1_2"],
+        xtf=[
             "tests/data/models/Waldabstandslinien_V1_2/2761_BL_Waldabstandslinien_V1_2.xtf",
             "tests/data/models/Waldabstandslinien_V1_2/2762_BL_Waldabstandslinien_V1_2.xtf",
             "tests/data/models/Waldabstandslinien_V1_2/2763_BL_Waldabstandslinien_V1_2.xtf",
@@ -441,160 +446,160 @@ data = [
             "tests/data/models/Waldabstandslinien_V1_2/2894_BL_Waldabstandslinien_V1_2.xtf",
             "tests/data/models/Waldabstandslinien_V1_2/2895_BL_Waldabstandslinien_V1_2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Waldabstandslinien_V1_2/DistancesParRapportALaForet_V1_2.imd",
-        "model_names": ["DistancesParRapportALaForet_V1_2"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Waldabstandslinien_V1_2/DistancesParRapportALaForet_V1_2.imd",  # noqa: E501
+        model_names=["DistancesParRapportALaForet_V1_2"],
+        xtf=[
             "tests/data/models/Waldabstandslinien_V1_2/NE_159_distance_par_rapport_a_la_foret_v1_2.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Waldreservate_V1_1/Waldreservate_V1_1.imd",
-        "model_names": ["Waldreservate_LV95_V1_1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Waldreservate_V1_1/Waldreservate_V1_1.imd",
+        model_names=["Waldreservate_LV95_V1_1"],
+        xtf=[
             "tests/data/models/Waldreservate_V1_1/160_1_reserves_forestieres.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Waldreservate_V2_0/Waldreservate_V2_0.imd",
-        "model_names": ["Waldreservate_V2_0"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Waldreservate_V2_0/Waldreservate_V2_0.imd",
+        model_names=["Waldreservate_V2_0"],
+        xtf=[
             "tests/data/models/Waldreservate_V2_0/waldreservate_v2_0.xtf",
         ],
-    },
-    {
-        "imd": "tests/data/models/Wildruhezonen_V2_1_1/Wildruhezonen_V2_1.imd",
-        "model_names": ["Wildruhezonen_LV95_V2_1"],
-        "xtf": [
+    ),
+    ModelSet(
+        imd="tests/data/models/Wildruhezonen_V2_1_1/Wildruhezonen_V2_1.imd",
+        model_names=["Wildruhezonen_LV95_V2_1"],
+        xtf=[
             "tests/data/models/Wildruhezonen_V2_1_1/mgdm_Wildruhezonen_LV95_V2_1_BL.xtf",
         ],
-    },
+    ),
 ]
 
-diagram_config = [
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "polyline",
-        "postfix": "puml",
-        "multiplier": 2,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "polyline",
-        "postfix": "puml",
-        "multiplier": 3,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "polyline",
-        "postfix": "puml",
-        "multiplier": 5,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "ortho",
-        "postfix": "puml",
-        "multiplier": 2,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "ortho",
-        "postfix": "puml",
-        "multiplier": 3,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "ortho",
-        "postfix": "puml",
-        "multiplier": 3,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 2,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 3,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "top to bottom",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 5,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "left to right",
-        "linetype": "polyline",
-        "postfix": "puml",
-        "multiplier": 2,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "left to right",
-        "linetype": "ortho",
-        "postfix": "puml",
-        "multiplier": 3,
-    },
-    {
-        "flavour": "plantuml",
-        "direction": "left to right",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 5,
-    },
-    {
-        "flavour": "plantuml_role_members",
-        "direction": "top to bottom",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 2,
-    },
-    {
-        "flavour": "plantuml_role_members",
-        "direction": "top to bottom",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 3,
-    },
-    {
-        "flavour": "plantuml_role_members",
-        "direction": "top to bottom",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 5,
-    },
-    {
-        "flavour": "plantuml_role_members",
-        "direction": "left to right",
-        "linetype": "spline",
-        "postfix": "puml",
-        "multiplier": 5,
-    },
-    {"flavour": "mermaid", "direction": "LR", "linetype": None, "postfix": "md"},
-    {"flavour": "mermaid", "direction": "RL", "linetype": None, "postfix": "md"},
-    {"flavour": "mermaid", "direction": "TB", "linetype": None, "postfix": "md"},
-    {"flavour": "mermaid", "direction": "BT", "linetype": None, "postfix": "md"},
+diagram_config: list[DiagramConfig] = [
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="polyline",
+        postfix="puml",
+        multiplier=2,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="polyline",
+        postfix="puml",
+        multiplier=3,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="polyline",
+        postfix="puml",
+        multiplier=5,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="ortho",
+        postfix="puml",
+        multiplier=2,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="ortho",
+        postfix="puml",
+        multiplier=3,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="ortho",
+        postfix="puml",
+        multiplier=3,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="spline",
+        postfix="puml",
+        multiplier=2,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="spline",
+        postfix="puml",
+        multiplier=3,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="top to bottom",
+        linetype="spline",
+        postfix="puml",
+        multiplier=5,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="left to right",
+        linetype="polyline",
+        postfix="puml",
+        multiplier=2,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="left to right",
+        linetype="ortho",
+        postfix="puml",
+        multiplier=3,
+    ),
+    DiagramConfig(
+        flavour="plantuml",
+        direction="left to right",
+        linetype="spline",
+        postfix="puml",
+        multiplier=5,
+    ),
+    DiagramConfig(
+        flavour="plantuml_role_members",
+        direction="top to bottom",
+        linetype="spline",
+        postfix="puml",
+        multiplier=2,
+    ),
+    DiagramConfig(
+        flavour="plantuml_role_members",
+        direction="top to bottom",
+        linetype="spline",
+        postfix="puml",
+        multiplier=3,
+    ),
+    DiagramConfig(
+        flavour="plantuml_role_members",
+        direction="top to bottom",
+        linetype="spline",
+        postfix="puml",
+        multiplier=5,
+    ),
+    DiagramConfig(
+        flavour="plantuml_role_members",
+        direction="left to right",
+        linetype="spline",
+        postfix="puml",
+        multiplier=5,
+    ),
+    DiagramConfig(flavour="mermaid", direction="LR", linetype=None, postfix="md"),
+    DiagramConfig(flavour="mermaid", direction="RL", linetype=None, postfix="md"),
+    DiagramConfig(flavour="mermaid", direction="TB", linetype=None, postfix="md"),
+    DiagramConfig(flavour="mermaid", direction="BT", linetype=None, postfix="md"),
 ]
 
 for test_set in data:
-    metamodel = reader.read(test_set["imd"])
+    metamodel = reader.read(test_set.imd)
     index = Index(metamodel.datasection)
-    library_name = f'{index.types_bucket["Model"][-1].name}'
+    library_name = f"{index.types_bucket['Model'][-1].name}"
     library = Library.from_imd(metamodel.datasection.ModelData, index, library_name)
     create_python_classes(library, index, output_path)
     diagram = Diagram.from_imd(index)
@@ -602,27 +607,26 @@ for test_set in data:
         written_path = uml_diagram(
             diagram,
             index,
-            test_set["model_names"],
-            configuration["flavour"],
+            test_set.model_names,
+            configuration.flavour,
             ".".join(
                 [
                     library_name,
-                    configuration["flavour"],
-                    configuration["direction"],
-                    configuration["linetype"] if configuration["linetype"] else "_",
-                    str(configuration.get("multiplier", 2)),
-                    configuration["postfix"],
+                    configuration.flavour,
+                    configuration.direction,
+                    configuration.linetype if configuration.linetype else "_",
+                    str(configuration.multiplier),
+                    configuration.postfix,
                 ]
             ),
             output_path,
-            linetype=configuration["linetype"],
-            direction=configuration["direction"],
-            multiplier=configuration.get("multiplier", 2),
+            linetype=configuration.linetype,
+            direction=configuration.direction,
+            multiplier=configuration.multiplier,
         )
 
 
-"""
-run in bash afterwards:
-find build/ili2py_output_test/mermaid/ -type f -name "*.md" | parallel -j 14 'mmdc -i {} -o {.}.png'
-plantuml -tpng build/ili2py_output_test/plantuml/*.puml
-"""
+# run in bash afterwards:
+# find build/ili2py_output_test/mermaid/ -type f -name "*.md" \
+#     | parallel -j 14 'mmdc -i {} -o {.}.png'
+# plantuml -tpng build/ili2py_output_test/plantuml/*.puml

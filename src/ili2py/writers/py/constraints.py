@@ -156,7 +156,7 @@ class Constraint:
 
 @dataclass(kw_only=True)
 class SimpleConstraint(Constraint):
-    kind: str = field()
+    kind: str | None = field(default=None)
     percentage: Decimal | None = field(
         default=None,
     )

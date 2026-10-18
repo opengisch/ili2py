@@ -1,29 +1,32 @@
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
-from typing import List, Optional
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import imd_namespace_map
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.expression import (
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.extendable_me.type.expression.expression import (  # noqa: E501
     Expression,
 )
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.meta_element import MetaElement
-from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import OrderedRef, Ref
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.meta_element import (
+    MetaElement,
+)
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.references import (
+    OrderedRef,
+    Ref,
+)
 
 
 @dataclass(kw_only=True)
 class ExtendableMe(MetaElement):
-
     Abstract: bool = field(metadata={"namespace": imd_namespace_map["IlisMeta16"]})
     Final: bool = field(metadata={"namespace": imd_namespace_map["IlisMeta16"]})
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    Super_ref: Optional[Ref] = field(
+    Super_ref: Ref | None = field(
         default=None,
         metadata={"name": "Super", "namespace": imd_namespace_map["IlisMeta16"]},
     )
     # Only available in interlis model_data since 2.4
     # TODO: Find way to create class according to the parsed version in imd
-    Generic: bool = field(
+    Generic: bool | None = field(
         default=None,
         metadata={"namespace": imd_namespace_map["IlisMeta16"]},
     )
@@ -32,7 +35,6 @@ class ExtendableMe(MetaElement):
 
 @dataclass
 class Unit(ExtendableMe):
-
     class KindEnum(StrEnum):
         BaseU = auto()
         DerivedU = auto()
@@ -55,7 +57,6 @@ class DataUnit(ExtendableMe):
 
 @dataclass
 class AttrOrParam(ExtendableMe):
-
     class SubdivisionKindEnum(StrEnum):
         NoSubDiv = auto()
         SubDiv = auto()
@@ -63,21 +64,23 @@ class AttrOrParam(ExtendableMe):
 
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    Type_ref: Ref = field(metadata={"name": "Type", "namespace": imd_namespace_map["IlisMeta16"]})
-    SubdivisionKind: SubdivisionKindEnum = None
-    Transient: Optional[bool] = None
-    Derivates: Optional[List[Expression]] = field(
+    Type_ref: Ref = field(
+        metadata={"name": "Type", "namespace": imd_namespace_map["IlisMeta16"]}
+    )
+    SubdivisionKind: SubdivisionKindEnum | None = None
+    Transient: bool | None = None
+    Derivates: list[Expression] | None = field(
         default_factory=list, metadata={"namespace": imd_namespace_map["IlisMeta16"]}
     )
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    AttrParent_ref: Optional[OrderedRef] = field(
+    AttrParent_ref: OrderedRef | None = field(
         default=None,
         metadata={"name": "AttrParent", "namespace": imd_namespace_map["IlisMeta16"]},
     )
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    ParamParent_ref: Optional[OrderedRef] = field(
+    ParamParent_ref: OrderedRef | None = field(
         default=None,
         metadata={"name": "ParamParent", "namespace": imd_namespace_map["IlisMeta16"]},
     )
@@ -85,14 +88,15 @@ class AttrOrParam(ExtendableMe):
 
 @dataclass
 class EnumNode(ExtendableMe):
-
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    EnumType_ref: Optional[OrderedRef] = field(
-        default=None, metadata={"name": "EnumType", "namespace": imd_namespace_map["IlisMeta16"]}
+    EnumType_ref: OrderedRef | None = field(
+        default=None,
+        metadata={"name": "EnumType", "namespace": imd_namespace_map["IlisMeta16"]},
     )
     # use the metadata.name to fetch the element from XML but store it
     #   as `*_ref` instance variable to resolve soft reference to actual object
-    ParentNode_ref: Optional[OrderedRef] = field(
-        default=None, metadata={"name": "ParentNode", "namespace": imd_namespace_map["IlisMeta16"]}
+    ParentNode_ref: OrderedRef | None = field(
+        default=None,
+        metadata={"name": "ParentNode", "namespace": imd_namespace_map["IlisMeta16"]},
     )

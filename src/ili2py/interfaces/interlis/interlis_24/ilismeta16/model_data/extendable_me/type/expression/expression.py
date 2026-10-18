@@ -1,6 +1,5 @@
 from dataclasses import dataclass, field
 from enum import StrEnum, auto
-from typing import List, Optional
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta16 import imd_namespace_map
 
@@ -21,7 +20,7 @@ class UnaryExpr(Expression):
             "namespace": imd_namespace_map["IlisMeta16"],
         }
     )
-    SubExpressions: List[Expression] = field(
+    SubExpressions: list[Expression] = field(
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],
         }
@@ -43,7 +42,7 @@ class CompoundExpr(Expression):
         Relation_Less = "Relation.Less"
         Relation_Greater = "Relation.Greater"
 
-    Operation: Optional[OperationEnum] = field(
+    Operation: OperationEnum | None = field(
         default=None,
         metadata={
             "namespace": imd_namespace_map["IlisMeta16"],

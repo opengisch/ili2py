@@ -68,15 +68,16 @@ reserved_python_key_words = [
 ]
 
 
-def create_python_classes(library: Library, index: Index, output_path: str, beautify: bool = True):
+def create_python_classes(
+    library: Library, index: Index, output_path: str, beautify: bool = True
+):
     ili_version = handle_model_versions(index)
-    if ili_version == "2.3":
+    if ili_version == "2.3" or ili_version == "2.4":
         reader_classes(
-            library, output_path, render_config=render_configuration[ili_version], beautify=beautify
-        )
-    elif ili_version == "2.4":
-        reader_classes(
-            library, output_path, render_config=render_configuration[ili_version], beautify=beautify
+            library,
+            output_path,
+            render_config=render_configuration[ili_version],
+            beautify=beautify,
         )
     else:
         raise NotImplementedError(f"ili version '{ili_version}' not supported")
@@ -86,17 +87,22 @@ def library_storage_name(library_name: str) -> str:
     return library_name.split(".")[-1]
 
 
-def reader_classes(library: Library, output_path: str, render_config: dict, beautify: bool = True):
-    tpl_dir = Path(__file__).parent.joinpath(f"interlis{render_config['selector']}", "templates")
-    env = Environment(loader=FileSystemLoader(str(tpl_dir)), autoescape=False) # nosec B701
+def reader_classes(
+    library: Library, output_path: str, render_config: dict, beautify: bool = True
+):
+    tpl_dir = Path(__file__).parent.joinpath(
+        f"interlis{render_config['selector']}", "templates"
+    )
+    env = Environment(loader=FileSystemLoader(str(tpl_dir)), autoescape=False)  # nosec B701
     library_content = env.get_template("library_init.jinja2").render(
         library=library,
         render_config=render_config,
         reserved_python_key_words=reserved_python_key_words,
     )
-    # we expect the name to contain dots (as python dotted path) this can be used to create the interface in
-    # the correct way for a library where it should be included to. As we always want the folder of the
-    # library package to be named after the library we expect the last element the right match in any case.
+    # we expect the name to contain dots (as python dotted path) this can be used to create the
+    # interface in the correct way for a library where it should be included to. As we always
+    # want the folder of the library package to be named after the library we expect the last
+    # element the right match in any case.
     library_name = library_storage_name(library.name)
     target_path = os.path.join(output_path, library_name)
     if os.path.isdir(target_path):
@@ -145,7 +151,6 @@ def reader_classes(library: Library, output_path: str, render_config: dict, beau
             )
             module_file.write_text(module_content, encoding="utf-8")
     if beautify:
-
         output_path_pathlib = Path(output_path)
         py_files = (
             output_path_pathlib.rglob("*.py")
