@@ -1,0 +1,52 @@
+INTERLIS 2.4;
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!
+!! Modello di dati della misurazione ufficiale "federale" (DMAV)
+!! descritto nella versione INTERLIS 2.4
+!!
+!! Ufficio federale di topografia (swisstopo)
+!! Direzione federale delle misurazione catastali
+!! CH-3084 Wabern
+!! www.cadastre.ch und www.interlis.ch
+!!
+!! Versione: 1.1 TRANSLATION OF italiano
+!! Nome del file: DMAVTYM_Tutti_V1_1.ili
+!!
+!! Il presente modello di dati si applica al quadro di riferimento "Misurazione
+!! nazionale 1903+ (MN95)".
+!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!! Tipo: M=modifica, I=integrazione, C=cancellazione
+!!
+!! Versione   | Linea | Tipo| Osservazione
+!!------------|-------|-----|-------------------------------------------------------------
+
+!!@ furtherInformation=https://www.cadastre-manual.admin.ch/de/modelldokumentation-dmav
+!!@ technicalContact=mailto:dmav@swisstopo.ch
+MODEL DMAVTYM_Tutti_V1_1 (it)
+  AT "https://models.geo.admin.ch/V_D/"
+  VERSION "2026-01-31"
+  TRANSLATION OF DMAVTYM_Alles_V1_1 ["2026-01-31"]
+  =
+  IMPORTS DMAV_CoperturaSuolo_V1_1;
+  IMPORTS DMAV_SpostamentiDiTerrenoPermanenti_V1_1;
+  IMPORTS DMAV_ConfiniDiServitu_V1_1;
+  IMPORTS DMAV_OggettiSingoli_V1_1;
+  IMPORTS DMAV_PuntiFissiMUCategoria3_V1_1;
+  IMPORTS DMAV_IndirizziDegliEdifici_V1_1;
+  IMPORTS DMAV_Fondi_V1_1;
+  IMPORTS DMAV_ConfiniGiurisdizionaliMU_V1_0;
+  IMPORTS DMAV_Nomenclatura_V1_1;
+  IMPORTS DMAV_Condotte_V1_1;
+  IMPORTS DMAV_GradiTolleranza_V1_1;
+  IMPORTS DMAVSUP_SubUnitaRegistroFondiario_V1_1;
+
+  !!Intégré dans les données de la mensuration officielle en tant que service :
+  IMPORTS FixpunkteLV_V1_0;                   !! géodonnées de base ID 53
+  IMPORTS KGKCGC_FPDS2_V1_1_IT;               !! géodonnées de base ID 54
+  IMPORTS HoheitsgrenzenLV_V1_0;              !! géodonnées de base ID 39
+  IMPORTS OfficialIndexOfLocalities_V1_0;     !! géodonnées de base ID 181
+  
+END DMAVTYM_Tutti_V1_1.

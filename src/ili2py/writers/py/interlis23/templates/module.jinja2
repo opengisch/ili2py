@@ -3,7 +3,7 @@ from enum import Enum
 from abc import ABC
 from typing import Any, Union, Tuple
 from {{ module.library }} import INTERLIS
-from {{ module.library }}.references import Ref, XmlBlBoxType, BinBlBoxType
+from {{ module.library }}.references import Ref, Oid, XmlBlBoxType, BinBlBoxType
 {% for item in  module.imported_packages %}
 from {{ module.library }} import {{ item }}
 {% endfor %}
@@ -72,6 +72,7 @@ class {{ module.name }}TOPIC:
             )
         }
     )
+    # basket attributes as in ili2c (XSDGenerator)
     bid: str|None = field(
         default=None,
         metadata={
@@ -79,11 +80,39 @@ class {{ module.name }}TOPIC:
             "name": "BID"
         },
     )
+    topics: str|None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "TOPICS"
+        },
+    )
     kind: str|None = field(
         default=None,
         metadata={
             "type": "Attribute",
             "name": "KIND"
+        },
+    )
+    start_state: str|None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "STARTSTATE"
+        },
+    )
+    end_state: str|None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "ENDSTATE"
+        },
+    )
+    consistency: str|None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "CONSISTENCY"
         },
     )
 {% endif %}

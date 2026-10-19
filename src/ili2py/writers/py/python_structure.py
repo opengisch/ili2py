@@ -210,6 +210,7 @@ class Attribute(Base):
     type_related_imports: list[RelatedImport] = field(default_factory=list)
     namespace_package: str | None = field(default=None)
     kind: str | None = field(default=None)
+    is_oid_type: bool = field(default=False)
 
     @staticmethod
     def check_float_kind(representation: str | None) -> bool:
@@ -611,6 +612,7 @@ class Attribute(Base):
             namespace_package=Attribute.get_last_super_model_name_from_attribute(
                 imd_attr_or_param, index
             ),
+            is_oid_type=index.is_oid_type(mandatory(referenced_type.tid)),
         )
 
     @staticmethod
@@ -1214,11 +1216,60 @@ class Basket:
     choices: list[Choice] = field(default_factory=list)
     related_class_imports: list[RelatedImport] = field(default_factory=list)
 
+    @staticmethod
+    def xtf24_element_names(model_tid: str, index: Index) -> dict[str, str]:
+        """
+        Derives the XML element names of the elements in the topics of a model as they are
+        used in INTERLIS 2.4 transfers. The name is the element name, if it is not unique in
+        the model (e.g. a class named like its topic or classes with the same name in two
+        topics) it is qualified with the topic name ('Bodenbedeckung.Bodenbedeckung').
+
+        This follows ili2c (XSD24Generator.createDef2NameMapping). Unlike ili2c, models which
+        are a translation of another model are not skipped, the IMD does not tell it directly.
+
+        Args:
+            model_tid: The tid of the model whose topic elements are named.
+            index: The index of the IMD.
+
+        Returns:
+            The XML element names, the key is the tid of the element.
+        """
+        model_element_tids = index.elements_in_package.get(model_tid, [])
+        names: dict[str, str] = {}
+        name_owner: dict[str, str] = {}
+        used_names: set[str] = set()
+        for element_tid in model_element_tids:
+            element_name = index.index[element_tid].name
+            used_names.add(element_name)
+            name_owner[element_name] = element_tid
+            names[element_tid] = element_name
+        for topic_tid in model_element_tids:
+            topic = index.index[topic_tid]
+            if not isinstance(topic, SubModel):
+                continue
+            for element_tid in index.elements_in_package.get(topic_tid, []):
+                element = index.index[element_tid]
+                if element.name in used_names:
+                    owner_tid = name_owner.pop(element.name, None)
+                    # an element of another topic with the same name is qualified as well,
+                    # elements on model level keep their name
+                    if owner_tid is not None and owner_tid not in model_element_tids:
+                        owner = index.index[owner_tid]
+                        owner_topic = index.index[mandatory_ref(owner.element_in_package)]
+                        names[owner_tid] = f"{owner_topic.name}.{owner.name}"
+                    names[element_tid] = f"{topic.name}.{element.name}"
+                else:
+                    used_names.add(element.name)
+                    name_owner[element.name] = element_tid
+                    names[element_tid] = element.name
+        return names
+
     @classmethod
     def from_imd(cls, imd_class: DataUnit, index: Index):
         tid = mandatory(imd_class.tid)
         choices = []
         related_class_imports = []
+        xtf24_element_names: dict[str, dict[str, str]] = {}
         for type_oid in index.allowed_in_basket_of_data_unit[tid]:
             type_object = index.index[type_oid]
             # a DataUnit is always defined in a topic
@@ -1237,10 +1288,16 @@ class Basket:
                 type_model_object = index.index[
                     mandatory_ref(type_model_object.element_in_package)
                 ]
+            if type_model_object.tid not in xtf24_element_names:
+                xtf24_element_names[type_model_object.tid] = Basket.xtf24_element_names(
+                    type_model_object.tid, index
+                )
             choices.append(
                 Choice(
                     type_reference=type_reference,
-                    name=type_object.name,
+                    name=xtf24_element_names[type_model_object.tid].get(
+                        type_object.tid, type_object.name
+                    ),
                     identifier=type_object.tid,
                     model_name=type_model_object.name,
                 )

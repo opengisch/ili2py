@@ -70,8 +70,45 @@ class {{ class_definition.name }}:
     )
 {%- endif %}
 {%- endif %}
+{%- if class_definition.kind in ['Class', 'Association', 'View'] %}
+    # object attributes of incremental and inconsistent transfers as in ili2c (XSDGenerator)
+    BID: str | None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "BID",
+            "interlis": {
+                "meta_attributes": {},
+                "type_restrictions": None
+            }
+        }
+    )
+    OPERATION: str | None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "OPERATION",
+            "interlis": {
+                "meta_attributes": {},
+                "type_restrictions": None
+            }
+        }
+    )
+    CONSISTENCY: str | None = field(
+        default=None,
+        metadata={
+            "type": "Attribute",
+            "name": "CONSISTENCY",
+            "interlis": {
+                "meta_attributes": {},
+                "type_restrictions": None
+            }
+        }
+    )
+{%- endif %}
 {% for attribute in class_definition.attributes %}
-    {{ attribute.name }}: "{% if attribute.is_list_type %}list[{{ attribute.types|join(" | ") }}]{% else %}{{ attribute.types|join(" | ") }} | None{% endif %}" = field(
+    {%- set attribute_types = ["Oid"] if attribute.is_oid_type else attribute.types %}
+    {{ attribute.name }}: "{% if attribute.is_list_type %}list[{{ attribute_types|join(" | ") }}]{% else %}{{ attribute_types|join(" | ") }} | None{% endif %}" = field(
         {%- if attribute.is_list_type %}
         default_factory=list,
         {%- else %}

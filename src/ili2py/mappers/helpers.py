@@ -4,6 +4,7 @@ from typing import Any, Protocol
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     AllowedInBasket,
+    AnyOidtype,
     AttrOrParam,
     AxisSpec,
     BaseClass,
@@ -130,9 +131,10 @@ class Index:
             of kind Association belonging to the Role.
         association_to_class_ref_attributes: Key is the tid of Class of kind Class and value is
             a list of tuple which contain the tid to the Role and the tid to the related Class
-            kind Class. This is the the embedded reference, where the actual class might get
-            additional attributes by the association definition. It explicitly is only used
-            when association is one or zero on the side of the class in question.
+            kind Class. This is the the embedded reference, where the actual class gets the
+            role as additional attribute in the transfer. It is taken from the IMD (Role with
+            EmbeddedTransfer and TransferElement of the class), see `prepare_embedded_roles`.
+        oid_types: The tid's of the domains which are OID types, see `prepare_oid_types`.
         elements_in_package: Key is the tid of the package (Model, Submodel) and value is a
             list of tid's of elements which are in the package.
         topic_basket: Key is the tid of the package (SubModel) and value is the tid of the
@@ -233,9 +235,9 @@ class Index:
             for element in basket.choice:
                 self.prepare_tree(element)
 
-        if self.types_kind_bucket.get("Class.Association"):
-            for association_class in self.types_kind_bucket["Class.Association"]:
-                self.prepare_association(association_class)
+        self.prepare_embedded_roles()
+        self.oid_types: set = set()
+        self.prepare_oid_types()
 
         self.root_model: str = self.models[-1]
         self.depth_tree.append([self.root_model])
@@ -673,60 +675,90 @@ class Index:
                     if element.tid not in self.line_form:
                         self.line_form[element.tid] = []
 
-    def prepare_association(self, association_class: Class):
+    def prepare_embedded_roles(self):
         """
-        The following preassumptions were made:
-            - 1:n is installed as class attribute to the referenced class with the 1 side, a
-              backref attribute is installed at the referenced class as a list, if the
-              association itself has no attributes itself
-            - m:n is created as extra class with the attributes and references to the tid's of
-              the corresponding objects, same approach is implemented for any associaton which
-              has additional attributes itself
-            - QUESTION: what happens, if association has super class?
-        Args:
-            association_class ():
+        Collects the roles which are embedded as reference in the objects of a class in the
+        transfer. ili2c decides this and writes it into the IMD: the Role has EmbeddedTransfer
+        and is a TransferElement of the class. So it is taken from there and not derived from
+        the multiplicities (which failed e.g. for 1:1 associations).
 
-        Returns:
-
+        TransferElement lists inherited roles again for each sub class, those are skipped,
+        the dataclass inherits the attribute from the super class.
         """
-
-        if self.association_role.get(association_class.tid):
-            # we have associated classes in this association
-            association_members = self.association_role[association_class.tid]
-        else:
-            # association does not have associated classes
-            # this is the case when association is just a subclass of another one
-            # TODO: currently we step only one level deep here, this has to be recursively
-            # deep!
-            if association_class.super:
-                association_members = self.association_role[association_class.super.ref]
-            else:
-                association_members = []
-        from_class = None
-        attributes = []
-        for member_ref in association_members:
-            # handling of embedded associations
-            role: Role = self.index[member_ref]
-            multiplicity = Index.role_multiplicity(role)
-            linked = self.class_related_type[member_ref]
-            if not isinstance(linked, list):
-                linked = [linked]
-            for linked_class in linked:
+        for class_tid, transfer_elements in self.transfer_class.items():
+            if self.index[class_tid].kind != "Class":
+                # objects of an association class carry their roles themselves
+                continue
+            inherited_elements = {
+                element_tid
+                for super_class_tid in self._super_classes(class_tid)
+                for _, element_tid in self.transfer_class.get(super_class_tid, [])
+            }
+            attributes = []
+            for _, element_tid in sorted(transfer_elements, key=lambda item: item[0] or 0):
+                role = self.index[element_tid]
+                if (
+                    not isinstance(role, Role)
+                    or not role.embedded_transfer
+                    or element_tid in inherited_elements
+                ):
+                    continue
+                linked = self.class_related_type[element_tid]
+                if not isinstance(linked, list):
+                    linked = [linked]
                 # multiple classes can be linked with additional logical operator
                 # (currently OR is what is implemented according to ref manual)
-                if multiplicity.min in [0, 1] and multiplicity.max == 1:
-                    # regarding ref manual direct embedded class attributes are only existing
-                    # on exactly 1 or 0 related association targets - all others are modeled as
-                    # own class like entities in the transfer data
-                    attributes.append((role.tid, linked_class))
-                else:
-                    from_class = linked_class
-        if from_class not in self.association_to_class_ref_attributes:
-            self.association_to_class_ref_attributes[from_class] = attributes
-        else:
-            self.association_to_class_ref_attributes[from_class] = (
-                self.association_to_class_ref_attributes[from_class] + attributes
-            )
+                for linked_class in linked:
+                    attributes.append((element_tid, linked_class))
+            if attributes:
+                self.association_to_class_ref_attributes[class_tid] = attributes
+
+    def prepare_oid_types(self):
+        """
+        Collects the domains which are OID types. The IMD does not tell it for OID TEXT and
+        OID NUM, ili2c writes them as plain TextType and NumType, only OID ANY gets
+        AnyOIDType (https://github.com/claeis/ili2c/issues/168). It matters for the transfer,
+        in INTERLIS 2.3 an attribute of an OID type is encoded as <attr OID="..."/>.
+
+        Temporary fix until the IMD tells it: a domain is an OID type if it is an AnyOIDType,
+        if it is used as OID of a class or a basket (OID AS, BASKET OID AS) or if it is one of
+        the predefined OID domains of INTERLIS. An OID domain which is never used as OID and
+        an anonymous OID type of an attribute (e.g. TextID : OID TEXT*34) are not found.
+        """
+        self.oid_types.update(["INTERLIS.I32OID", "INTERLIS.STANDARDOID", "INTERLIS.UUIDOID"])
+        for element in self.index.values():
+            if isinstance(element, AnyOidtype):
+                self.oid_types.add(element.tid)
+            elif isinstance(element, (Class, DataUnit)) and element.oid is not None:
+                self.oid_types.add(mandatory(element.oid.ref))
+
+    def is_oid_type(self, type_tid: str) -> bool:
+        """
+        Checks if a type is an OID type, the super types are followed (e.g. the local type of
+        an attribute which extends an OID domain), see `prepare_oid_types`.
+
+        Args:
+            type_tid: The tid of the type.
+
+        Returns:
+            True if the type or one of its super types is an OID type.
+        """
+        while True:
+            if type_tid in self.oid_types:
+                return True
+            type_object = self.index.get(type_tid)
+            if type_object is None or getattr(type_object, "super", None) is None:
+                return False
+            type_tid = mandatory(type_object.super.ref)
+
+    def _super_classes(self, class_tid: str) -> list[str]:
+        super_classes = []
+        class_object = self.index[class_tid]
+        while class_object.super is not None:
+            super_class_tid = mandatory(class_object.super.ref)
+            super_classes.append(super_class_tid)
+            class_object = self.index[super_class_tid]
+        return super_classes
 
     def handle_attr_or_param(self, element: AttrOrParam):
         if element.attr_parent:

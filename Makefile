@@ -11,6 +11,15 @@ DOCS_CONFIGURATION = docs/mkdocs.yml
 # Package name
 PACKAGE = ili2py
 
+# ilivalidator (e2e tests)
+ILIVALIDATOR_VERSION ?= 1.15.0
+ILIVALIDATOR_URL ?= https://downloads.interlis.ch/ilivalidator/ilivalidator-$(ILIVALIDATOR_VERSION).zip
+ILIVALIDATOR_DIR = build/ilivalidator-$(ILIVALIDATOR_VERSION)
+ILIVALIDATOR_ZIP = build/ilivalidator-$(ILIVALIDATOR_VERSION).zip
+ILIVALIDATOR_JAR = $(ILIVALIDATOR_DIR)/ilivalidator-$(ILIVALIDATOR_VERSION).jar
+# parallel pytest workers (pytest-xdist) for test-e2e
+E2E_WORKERS ?= 4
+
 # **************
 # Common targets
 # **************
@@ -54,6 +63,21 @@ git-attributes:
 .PHONY: dev
 dev: install-dev
 
+$(ILIVALIDATOR_ZIP):
+	mkdir -p $(dir $@)
+	curl -fL -o $@.part $(ILIVALIDATOR_URL)
+	mv $@.part $@
+
+$(ILIVALIDATOR_JAR): $(ILIVALIDATOR_ZIP)
+	rm -rf $(ILIVALIDATOR_DIR)
+	unzip -q -o $< -d $(ILIVALIDATOR_DIR)
+	test -f $@
+	touch $@
+
+.PHONY: ilivalidator
+ilivalidator: $(ILIVALIDATOR_JAR)
+	@command -v java >/dev/null 2>&1 || { echo "java not found: ilivalidator needs a Java runtime (JRE)" >&2; exit 1; }
+
 .PHONY: test-coverage
 test-coverage:
 	$(UV_RUN) --group test pytest -vv --cov $(PACKAGE) --cov-report term-missing:skip-covered tests
@@ -62,8 +86,12 @@ test-coverage:
 test:
 	$(UV_RUN) --group test pytest -vv tests
 
+.PHONY: test-e2e
+test-e2e: ilivalidator
+	ILIVALIDATOR_JAR=$(abspath $(ILIVALIDATOR_JAR)) $(UV_RUN) --group test pytest -vv -n $(E2E_WORKERS) -m e2e --run-e2e --run-network_bound tests/e2e
+
 .PHONY: tests
-tests: test
+tests: test test-e2e
 
 .PHONY: check
 check:

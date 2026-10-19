@@ -3,7 +3,7 @@ from enum import Enum
 from abc import ABC
 from typing import Any, Union, Tuple
 from dataclasses import dataclass, field
-from {{ package.library }}.references import Ref, XmlBlBoxType, BinBlBoxType
+from {{ package.library }}.references import Ref, Oid, XmlBlBoxType, BinBlBoxType
 {%- if package.name != 'INTERLIS' %}
 from {{ package.library }} import INTERLIS
 {%- endif %}
