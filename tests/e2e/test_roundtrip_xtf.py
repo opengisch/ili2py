@@ -33,8 +33,10 @@ ROLE_REF = "generator: association role embedded in the class (<role REF=…/>) 
 HEADER_ALIAS = "generator: INTERLIS 2.3 HEADERSECTION/ALIAS is missing in xtf_opening"
 TRANSLATION = "generator: baskets of a translated model (TRANSLATION OF) are not known"
 OID_ATTRIBUTE = "generator/codec: OID typed attribute (<BasketID OID=…/>) is lost on write"
-CORRUPT_ZIP = "test data: NE_a_153_5.zip is truncated (Bad CRC-32)"
-INVALID_SOURCE = "test data: source XTF already invalid (198 x polygons overlay)"
+INVALID_SOURCE = (
+    "test data: source XTF fails ilivalidator 1.15.0 (198 x polygons overlay), geodienste "
+    "validated it with 1.11.13"
+)
 
 
 def known_failure(imd_path: str, *reasons: str):
@@ -74,7 +76,7 @@ def known_failure(imd_path: str, *reasons: str):
         known_failure("models/LWB_Nutzungsflaechen_V2_0/LWB_Nutzungsflaechen_V2_0.imd", OID_TID),
         known_failure(
             "models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0.imd",
-            CORRUPT_ZIP,
+            OID_TID,
         ),
         known_failure(
             "models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",
