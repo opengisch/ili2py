@@ -4,6 +4,7 @@ import importlib
 import subprocess
 import sys
 import zipfile
+from base64 import b64decode, b64encode
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -12,6 +13,7 @@ from types import ModuleType
 from typing import IO, Any, cast
 from xml.etree.ElementTree import iterparse
 
+from xsdata.formats.converter import Converter, converter
 from xsdata.formats.dataclass.parsers import XmlParser
 from xsdata.formats.dataclass.parsers.config import ParserConfig
 from xsdata.formats.dataclass.serializers import XmlSerializer
@@ -221,10 +223,77 @@ def imported_library(library: GeneratedLibrary) -> Iterator[ModuleType]:
         importlib.invalidate_caches()
 
 
+class SpecialTypeConverter(Converter):
+    """
+    Converts the special str, int and float types of a generated library (e.g.
+    INTERLIS.UUIDOID, INTERLIS.GregorianYear). The type is bound per instance, so every
+    registered type gets its own converter.
+    """
+
+    def __init__(self, data_type: type):
+        self.data_type = data_type
+
+    def deserialize(self, value: Any, **kwargs: Any) -> Any:
+        return self.data_type(value) if value is not None else None
+
+    def serialize(self, value: Any, **kwargs: Any) -> str | None:  # type: ignore[override]
+        return str(value) if value is not None else None
+
+
+class BinBlBoxConverter(Converter):
+    """
+    Converts the BLACKBOX BINARY type of a generated library, the XTF holds it base64
+    encoded.
+    """
+
+    def __init__(self, data_type: type):
+        self.data_type = data_type
+
+    def deserialize(self, value: Any, **kwargs: Any) -> Any:
+        return self.data_type(b64decode(value)) if value is not None else None
+
+    def serialize(self, value: Any, **kwargs: Any) -> str | None:  # type: ignore[override]
+        return b64encode(value).decode() if value is not None else None
+
+
+@contextmanager
+def registered_types(library: GeneratedLibrary) -> Iterator[None]:
+    """
+    Registers the special types of a generated library as xsdata converters and unregisters
+    them on exit. xsdata supports only registered types, models and enums, without it e.g. a
+    TID typed with INTERLIS.UUIDOID fails. Reading and writing have to happen inside, the
+    parser and the serializer build their own context.
+
+    The converter registry of xsdata is global per process, it is not thread safe.
+
+    Args:
+        library: The generated library, it has to be imported (see `imported_library`).
+    """
+    convertable_types = importlib.import_module(f"{library.name}.convertable_types")
+    references = importlib.import_module(f"{library.name}.references")
+    # 2.3 wraps the bytes in the BinBlBoxType element, 2.4 uses BinBlBoxType directly
+    bin_bl_box = getattr(references, "BinBlBox", references.BinBlBoxType)
+    converters: dict[type, Converter] = {bin_bl_box: BinBlBoxConverter(bin_bl_box)}
+    for special_type in (
+        convertable_types.get_special_str_types()
+        + convertable_types.get_special_int_types()
+        + convertable_types.get_special_float_types()
+    ):
+        converters[special_type] = SpecialTypeConverter(special_type)
+    for data_type, type_converter in converters.items():
+        converter.register_converter(data_type, type_converter)
+    try:
+        yield
+    finally:
+        for data_type in converters:
+            converter.unregister_converter(data_type)
+
+
 def read_xtf(path: Path, transfer_class: type[Any]) -> Any:
     """
     Parses an XTF into the generated dataclass objects. Unknown elements, attributes and
-    converter warnings fail, so data the classes can not hold is not dropped silently.
+    converter warnings fail, so data the classes can not hold is not dropped silently. Has to
+    be called inside `registered_types`.
 
     Args:
         path: The path of the XTF.
@@ -245,7 +314,7 @@ def read_xtf(path: Path, transfer_class: type[Any]) -> Any:
 
 def write_xtf(transfer: Any, path: Path, namespaces: dict[str, str]) -> None:
     """
-    Serializes the transfer object tree to an XTF.
+    Serializes the transfer object tree to an XTF. Has to be called inside `registered_types`.
 
     Args:
         transfer: The transfer object tree.

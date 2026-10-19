@@ -16,6 +16,7 @@ from .helpers import (
     generate_library,
     imported_library,
     read_xtf,
+    registered_types,
     run_ilivalidator,
     write_xtf,
     xtf_header,
@@ -24,10 +25,10 @@ from .helpers import (
 MODEL_REPOSITORY = "http://models.interlis.ch"
 MAX_REPORTED_ERRORS = 20
 
-# known failures (triage 2026-10-19, see PLAN-e2e-tests.md step 7)
-OID_TID = (
-    "generator: TID typed with an OID domain (e.g. INTERLIS.UUIDOID), xsdata does not support "
-    "it as XML attribute"
+# known failures (triage 2026-10-19)
+IMPORTED_TOPIC = (
+    "generator: basket of a topic of an imported model (DMAV_Bodenbedeckung_V1_1) is read "
+    "in the INTERLIS namespace, its classes are unknown"
 )
 ROLE_REF = "generator: association role embedded in the class (<role REF=…/>) is missing"
 HEADER_ALIAS = "generator: INTERLIS 2.3 HEADERSECTION/ALIAS is missing in xtf_opening"
@@ -50,7 +51,7 @@ def known_failure(imd_path: str, *reasons: str):
 @pytest.mark.parametrize(
     "imd_path",
     [
-        known_failure("models/DMAVTYM_Alles_V1_1/DMAVTYM_Alles_V1_1.imd", OID_TID),
+        known_failure("models/DMAVTYM_Alles_V1_1/DMAVTYM_Alles_V1_1.imd", IMPORTED_TOPIC),
         known_failure(
             "models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/ElektrischeAnlagenNennspannungUeber36kV_V1.imd",
             TRANSLATION,
@@ -58,30 +59,18 @@ def known_failure(imd_path: str, *reasons: str):
         "models/Fruchtfolgeflaechen_V1/Fruchtfolgeflaechen_V1.imd",
         "models/Gewaesserraum_V1_1/Gewaesserraum_V1_1.imd",
         "models/Grundwasservorkommen_V2_0/Grundwasservorkommen_V2_0.imd",
-        known_failure("models/Hazard_Mapping_V1_3/Hazard_Mapping_V1_3.imd", OID_TID),
+        "models/Hazard_Mapping_V1_3/Hazard_Mapping_V1_3.imd",
         "models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung_V1_0.imd",
         known_failure(
             "models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.imd", ROLE_REF
         ),
         "models/Kantonale_Ausnahmetransportrouten_V1_0/ExceptionalLoadsRoute_V1.imd",
         "models/Kataster_belasteter_Standorte_V1_5/KbS_V1_5.imd",
-        known_failure(
-            "models/LWB_Bewirtschaftungseinheiten_V2_0/LWB_Bewirtschaftungseinheiten_V2_0.imd",
-            OID_TID,
-        ),
-        known_failure(
-            "models/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0.imd",
-            OID_TID,
-        ),
-        known_failure("models/LWB_Nutzungsflaechen_V2_0/LWB_Nutzungsflaechen_V2_0.imd", OID_TID),
-        known_failure(
-            "models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0.imd",
-            OID_TID,
-        ),
-        known_failure(
-            "models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",
-            OID_TID,
-        ),
+        "models/LWB_Bewirtschaftungseinheiten_V2_0/LWB_Bewirtschaftungseinheiten_V2_0.imd",
+        "models/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0/LWB_Biodiversitaetsfoerderflaechen_Qualitaet_II_und_Vernetzung_V2_0.imd",
+        "models/LWB_Nutzungsflaechen_V2_0/LWB_Nutzungsflaechen_V2_0.imd",
+        "models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0.imd",
+        "models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",
         known_failure(
             "models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
             INVALID_SOURCE,
@@ -92,13 +81,13 @@ def known_failure(imd_path: str, *reasons: str):
             "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", ROLE_REF
         ),
         known_failure("models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd", OID_ATTRIBUTE),
-        known_failure("models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd", OID_TID),
+        "models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
         known_failure(
             "models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",
             HEADER_ALIAS,
         ),
         known_failure("models/Planungszonen_v1_1/Planungszonen_V1_1.imd", OID_ATTRIBUTE),
-        known_failure("models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd", OID_TID),
+        "models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd",
         known_failure(
             "models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd", ROLE_REF
         ),
@@ -112,13 +101,10 @@ def known_failure(imd_path: str, *reasons: str):
             TRANSLATION,
         ),
         "models/Rodungen_Rodungsersatz_V1_1/Rodungen_V1_1.imd",
-        known_failure(
-            "models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/SO_AFU_ABBAUSTELLEN_Publikation_20221103.imd",
-            OID_TID,
-        ),
-        known_failure("models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.imd", OID_TID),
-        known_failure("models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd", OID_TID),
-        known_failure("models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd", OID_TID),
+        "models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/SO_AFU_ABBAUSTELLEN_Publikation_20221103.imd",
+        "models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.imd",
+        known_failure("models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd", ROLE_REF),
+        known_failure("models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd", ROLE_REF),
         known_failure("models/Sanierung_Wasserkraft_V1_2/SanierungWasserkraft_V1_2.imd", ROLE_REF),
         known_failure("models/Statische_Waldgrenzen_v1_2/Waldgrenzen_V1_2.imd", OID_ATTRIBUTE),
         "models/Stromversorgung_Netzgebiete_V1_2/stromversorgungssicherheit_netzgebiete_LV95_V1_2.imd",
@@ -137,7 +123,7 @@ def test_roundtrip_xtf(resource_path_root, tmp_path, ilivalidator_jar, imd_path)
     header = xtf_header(source_xtf)
 
     result_xtf = tmp_path / f"roundtrip_{source_xtf.name}"
-    with imported_library(library) as xtf_opening:
+    with imported_library(library) as xtf_opening, registered_types(library):
         transfer = read_xtf(source_xtf, xtf_opening.Transfer)
         assert isinstance(transfer, xtf_opening.Transfer)
         assert transfer.datasection.baskets, f"no baskets read from {source_xtf.name}"
