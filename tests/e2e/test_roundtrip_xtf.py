@@ -26,7 +26,7 @@ MODEL_REPOSITORY = "http://models.interlis.ch"
 MAX_REPORTED_ERRORS = 20
 
 # known failures (triage 2026-10-19)
-ROLE_REF = "generator: association role embedded in the class (<role REF=…/>) is missing"
+BASKET_STATE = "generator: INTERLIS 2.3 basket attributes STARTSTATE/ENDSTATE are missing"
 HEADER_ALIAS = "generator: INTERLIS 2.3 HEADERSECTION/ALIAS is missing in xtf_opening"
 TRANSLATION = "generator: baskets of a translated model (TRANSLATION OF) are not known"
 OID_ATTRIBUTE = "generator/codec: OID typed attribute (<BasketID OID=…/>) is lost on write"
@@ -57,9 +57,7 @@ def known_failure(imd_path: str, *reasons: str):
         "models/Grundwasservorkommen_V2_0/Grundwasservorkommen_V2_0.imd",
         "models/Hazard_Mapping_V1_3/Hazard_Mapping_V1_3.imd",
         "models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung_V1_0.imd",
-        known_failure(
-            "models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.imd", ROLE_REF
-        ),
+        "models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.imd",
         "models/Kantonale_Ausnahmetransportrouten_V1_0/ExceptionalLoadsRoute_V1.imd",
         "models/Kataster_belasteter_Standorte_V1_5/KbS_V1_5.imd",
         "models/LWB_Bewirtschaftungseinheiten_V2_0/LWB_Bewirtschaftungseinheiten_V2_0.imd",
@@ -74,7 +72,7 @@ def known_failure(imd_path: str, *reasons: str):
         ),
         known_failure("models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd", HEADER_ALIAS),
         known_failure(
-            "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", ROLE_REF
+            "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", BASKET_STATE
         ),
         known_failure("models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd", OID_ATTRIBUTE),
         "models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
@@ -84,13 +82,8 @@ def known_failure(imd_path: str, *reasons: str):
         ),
         known_failure("models/Planungszonen_v1_1/Planungszonen_V1_1.imd", OID_ATTRIBUTE),
         "models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd",
-        known_failure(
-            "models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd", ROLE_REF
-        ),
-        known_failure(
-            "models/Revitalisierungen_Fliessgewaesser_V1_2/Revitalisierung_Fliessgewaesser_V1_2.imd",
-            ROLE_REF,
-        ),
+        "models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd",
+        "models/Revitalisierungen_Fliessgewaesser_V1_2/Revitalisierung_Fliessgewaesser_V1_2.imd",
         "models/Richtplan_erneuerbare_Energien_V1_0/PlanDirecteurEnergiesRenouvelables_V1.imd",
         known_failure(
             "models/Richtplan_erneuerbare_Energien_V1_0/RichtplanungErneuerbareEnergien_V1.imd",
@@ -99,9 +92,9 @@ def known_failure(imd_path: str, *reasons: str):
         "models/Rodungen_Rodungsersatz_V1_1/Rodungen_V1_1.imd",
         "models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/SO_AFU_ABBAUSTELLEN_Publikation_20221103.imd",
         "models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.imd",
-        known_failure("models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd", ROLE_REF),
-        known_failure("models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd", ROLE_REF),
-        known_failure("models/Sanierung_Wasserkraft_V1_2/SanierungWasserkraft_V1_2.imd", ROLE_REF),
+        "models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd",
+        "models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd",
+        "models/Sanierung_Wasserkraft_V1_2/SanierungWasserkraft_V1_2.imd",
         known_failure("models/Statische_Waldgrenzen_v1_2/Waldgrenzen_V1_2.imd", OID_ATTRIBUTE),
         "models/Stromversorgung_Netzgebiete_V1_2/stromversorgungssicherheit_netzgebiete_LV95_V1_2.imd",
         known_failure("models/Waldabstandslinien_V1_2/Waldabstandslinien_V1_2.imd", OID_ATTRIBUTE),
