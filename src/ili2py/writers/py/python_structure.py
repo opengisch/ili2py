@@ -210,6 +210,7 @@ class Attribute(Base):
     type_related_imports: list[RelatedImport] = field(default_factory=list)
     namespace_package: str | None = field(default=None)
     kind: str | None = field(default=None)
+    is_oid_type: bool = field(default=False)
 
     @staticmethod
     def check_float_kind(representation: str | None) -> bool:
@@ -611,6 +612,7 @@ class Attribute(Base):
             namespace_package=Attribute.get_last_super_model_name_from_attribute(
                 imd_attr_or_param, index
             ),
+            is_oid_type=index.is_oid_type(mandatory(referenced_type.tid)),
         )
 
     @staticmethod

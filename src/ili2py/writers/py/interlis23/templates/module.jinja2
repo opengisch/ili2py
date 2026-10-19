@@ -3,7 +3,7 @@ from enum import Enum
 from abc import ABC
 from typing import Any, Union, Tuple
 from {{ module.library }} import INTERLIS
-from {{ module.library }}.references import Ref, XmlBlBoxType, BinBlBoxType
+from {{ module.library }}.references import Ref, Oid, XmlBlBoxType, BinBlBoxType
 {% for item in  module.imported_packages %}
 from {{ module.library }} import {{ item }}
 {% endfor %}

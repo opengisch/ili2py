@@ -29,7 +29,6 @@ MAX_REPORTED_ERRORS = 20
 BASKET_STATE = "generator: INTERLIS 2.3 basket attributes STARTSTATE/ENDSTATE are missing"
 HEADER_ALIAS = "generator: INTERLIS 2.3 HEADERSECTION/ALIAS is missing in xtf_opening"
 TRANSLATION = "generator: baskets of a translated model (TRANSLATION OF) are not known"
-OID_ATTRIBUTE = "generator/codec: OID typed attribute (<BasketID OID=…/>) is lost on write"
 INVALID_SOURCE = (
     "test data: source XTF fails ilivalidator 1.15.0 (198 x polygons overlay), geodienste "
     "validated it with 1.11.13"
@@ -68,19 +67,18 @@ def known_failure(imd_path: str, *reasons: str):
         known_failure(
             "models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
             INVALID_SOURCE,
-            OID_ATTRIBUTE,
         ),
         known_failure("models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd", HEADER_ALIAS),
         known_failure(
             "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", BASKET_STATE
         ),
-        known_failure("models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd", OID_ATTRIBUTE),
+        "models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd",
         "models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
         known_failure(
             "models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",
             HEADER_ALIAS,
         ),
-        known_failure("models/Planungszonen_v1_1/Planungszonen_V1_1.imd", OID_ATTRIBUTE),
+        "models/Planungszonen_v1_1/Planungszonen_V1_1.imd",
         "models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd",
         "models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd",
         "models/Revitalisierungen_Fliessgewaesser_V1_2/Revitalisierung_Fliessgewaesser_V1_2.imd",
@@ -95,9 +93,9 @@ def known_failure(imd_path: str, *reasons: str):
         "models/SZ_Waldfeststellungen_V2/SZ_Waldfeststellungen_V2.imd",
         "models/SZ_Waldreservate_V3/SZ_Waldreservate_V3.imd",
         "models/Sanierung_Wasserkraft_V1_2/SanierungWasserkraft_V1_2.imd",
-        known_failure("models/Statische_Waldgrenzen_v1_2/Waldgrenzen_V1_2.imd", OID_ATTRIBUTE),
+        "models/Statische_Waldgrenzen_v1_2/Waldgrenzen_V1_2.imd",
         "models/Stromversorgung_Netzgebiete_V1_2/stromversorgungssicherheit_netzgebiete_LV95_V1_2.imd",
-        known_failure("models/Waldabstandslinien_V1_2/Waldabstandslinien_V1_2.imd", OID_ATTRIBUTE),
+        "models/Waldabstandslinien_V1_2/Waldabstandslinien_V1_2.imd",
         "models/Waldreservate_V1_1/Waldreservate_V1_1.imd",
         "models/Waldreservate_V2_0/Waldreservate_V2_0.imd",
         "models/Wildruhezonen_V2_1_1/Wildruhezonen_V2_1.imd",

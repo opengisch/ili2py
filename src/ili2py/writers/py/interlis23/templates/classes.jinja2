@@ -71,7 +71,8 @@ class {{ class_definition.name }}:
 {%- endif %}
 {%- endif %}
 {% for attribute in class_definition.attributes %}
-    {{ attribute.name }}: "{% if attribute.is_list_type %}list[{{ attribute.types|join(" | ") }}]{% else %}{{ attribute.types|join(" | ") }} | None{% endif %}" = field(
+    {%- set attribute_types = ["Oid"] if attribute.is_oid_type else attribute.types %}
+    {{ attribute.name }}: "{% if attribute.is_list_type %}list[{{ attribute_types|join(" | ") }}]{% else %}{{ attribute_types|join(" | ") }} | None{% endif %}" = field(
         {%- if attribute.is_list_type %}
         default_factory=list,
         {%- else %}

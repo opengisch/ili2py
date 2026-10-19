@@ -4,6 +4,7 @@ from typing import Any, Protocol
 
 from ili2py.interfaces.interlis.interlis_24.ilismeta.ilismeta16_2022_10_10 import (
     AllowedInBasket,
+    AnyOidtype,
     AttrOrParam,
     AxisSpec,
     BaseClass,
@@ -133,6 +134,7 @@ class Index:
             kind Class. This is the the embedded reference, where the actual class gets the
             role as additional attribute in the transfer. It is taken from the IMD (Role with
             EmbeddedTransfer and TransferElement of the class), see `prepare_embedded_roles`.
+        oid_types: The tid's of the domains which are OID types, see `prepare_oid_types`.
         elements_in_package: Key is the tid of the package (Model, Submodel) and value is a
             list of tid's of elements which are in the package.
         topic_basket: Key is the tid of the package (SubModel) and value is the tid of the
@@ -234,6 +236,8 @@ class Index:
                 self.prepare_tree(element)
 
         self.prepare_embedded_roles()
+        self.oid_types: set = set()
+        self.prepare_oid_types()
 
         self.root_model: str = self.models[-1]
         self.depth_tree.append([self.root_model])
@@ -708,6 +712,44 @@ class Index:
                     attributes.append((element_tid, linked_class))
             if attributes:
                 self.association_to_class_ref_attributes[class_tid] = attributes
+
+    def prepare_oid_types(self):
+        """
+        Collects the domains which are OID types. The IMD does not tell it for OID TEXT and
+        OID NUM, ili2c writes them as plain TextType and NumType, only OID ANY gets
+        AnyOIDType (https://github.com/claeis/ili2c/issues/168). It matters for the transfer,
+        in INTERLIS 2.3 an attribute of an OID type is encoded as <attr OID="..."/>.
+
+        Temporary fix until the IMD tells it: a domain is an OID type if it is an AnyOIDType,
+        if it is used as OID of a class or a basket (OID AS, BASKET OID AS) or if it is one of
+        the predefined OID domains of INTERLIS. An OID domain which is never used as OID and
+        an anonymous OID type of an attribute (e.g. TextID : OID TEXT*34) are not found.
+        """
+        self.oid_types.update(["INTERLIS.I32OID", "INTERLIS.STANDARDOID", "INTERLIS.UUIDOID"])
+        for element in self.index.values():
+            if isinstance(element, AnyOidtype):
+                self.oid_types.add(element.tid)
+            elif isinstance(element, (Class, DataUnit)) and element.oid is not None:
+                self.oid_types.add(mandatory(element.oid.ref))
+
+    def is_oid_type(self, type_tid: str) -> bool:
+        """
+        Checks if a type is an OID type, the super types are followed (e.g. the local type of
+        an attribute which extends an OID domain), see `prepare_oid_types`.
+
+        Args:
+            type_tid: The tid of the type.
+
+        Returns:
+            True if the type or one of its super types is an OID type.
+        """
+        while True:
+            if type_tid in self.oid_types:
+                return True
+            type_object = self.index.get(type_tid)
+            if type_object is None or getattr(type_object, "super", None) is None:
+                return False
+            type_tid = mandatory(type_object.super.ref)
 
     def _super_classes(self, class_tid: str) -> list[str]:
         super_classes = []
