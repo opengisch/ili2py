@@ -25,10 +25,6 @@ from .helpers import (
 MODEL_REPOSITORY = "http://models.interlis.ch"
 MAX_REPORTED_ERRORS = 20
 
-# known failures (triage 2026-10-19)
-BASKET_STATE = "generator: INTERLIS 2.3 basket attributes STARTSTATE/ENDSTATE are missing"
-
-
 def known_failure(imd_path: str, *reasons: str):
     return pytest.param(
         imd_path, marks=pytest.mark.xfail(reason="; ".join(reasons), strict=True)
@@ -47,6 +43,7 @@ def known_failure(imd_path: str, *reasons: str):
         "models/Grundwasservorkommen_V2_0/Grundwasservorkommen_V2_0.imd",
         "models/Hazard_Mapping_V1_3/Hazard_Mapping_V1_3.imd",
         "models/Holznutzungsbewilligung_V1/Holznutzungsbewilligung_V1_0.imd",
+        "models/IncrementalTransfer/DataTest1.imd",
         "models/Inventar_Wasserentnahmen_V1_1/InventarWasserentnahmen_V1_1.imd",
         "models/Kantonale_Ausnahmetransportrouten_V1_0/ExceptionalLoadsRoute_V1.imd",
         "models/Kataster_belasteter_Standorte_V1_5/KbS_V1_5.imd",
@@ -57,9 +54,7 @@ def known_failure(imd_path: str, *reasons: str):
         "models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",
         "models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
         "models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd",
-        known_failure(
-            "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", BASKET_STATE
-        ),
+        "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd",
         "models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd",
         "models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
         "models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",

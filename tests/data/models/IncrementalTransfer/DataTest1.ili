@@ -1,0 +1,15 @@
+INTERLIS 2.3;
+
+!! Model Test1 of iox-ili (src/test/data/Xtf23Reader/Test1.ili, MIT license) renamed to
+!! DataTest1, the name its test transfers ObjectOperationMode.xtf, ObjectConsistencyMode.xtf,
+!! BasketWithConsistency.xtf and BasketWithTransferKind.xtf refer to.
+!! https://github.com/claeis/iox-ili
+
+MODEL DataTest1 (de) AT "mailto:ceis@localhost" VERSION "2016-07-08" =
+
+	TOPIC TopicA =
+		CLASS ClassA =
+		END ClassA;
+	END TopicA;
+
+END DataTest1.

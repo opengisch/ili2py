@@ -36,3 +36,10 @@ generated from its imd, writes it back and validates the result with ilivalidato
   needs the imd of that translation, the imd of the original model does not know it.
 - The data must be valid, check it with ilivalidator in the version of the `Makefile`.
 - Add the imd to the list in `tests/e2e/test_roundtrip_xtf.py`.
+
+`models/IncrementalTransfer` holds the attributes of incremental and inconsistent transfers
+(`KIND`, `STARTSTATE`, `ENDSTATE`, `CONSISTENCY` of baskets, `OPERATION`, `CONSISTENCY`, `BID`
+of objects). Model and data are taken from the test cases of
+[iox-ili](https://github.com/claeis/iox-ili) (`src/test/data/Xtf23Reader`, MIT license): the
+model `Test1` is renamed to `DataTest1`, the name the test transfers refer to, the transfers
+are merged into one.

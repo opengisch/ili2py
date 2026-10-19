@@ -17,6 +17,8 @@ ILIVALIDATOR_URL ?= https://downloads.interlis.ch/ilivalidator/ilivalidator-$(IL
 ILIVALIDATOR_DIR = build/ilivalidator-$(ILIVALIDATOR_VERSION)
 ILIVALIDATOR_ZIP = build/ilivalidator-$(ILIVALIDATOR_VERSION).zip
 ILIVALIDATOR_JAR = $(ILIVALIDATOR_DIR)/ilivalidator-$(ILIVALIDATOR_VERSION).jar
+# parallel pytest workers (pytest-xdist) for test-e2e
+E2E_WORKERS ?= 4
 
 # **************
 # Common targets
@@ -86,7 +88,7 @@ test:
 
 .PHONY: test-e2e
 test-e2e: ilivalidator
-	ILIVALIDATOR_JAR=$(abspath $(ILIVALIDATOR_JAR)) $(UV_RUN) --group test pytest -vv -m e2e --run-e2e --run-network_bound tests/e2e
+	ILIVALIDATOR_JAR=$(abspath $(ILIVALIDATOR_JAR)) $(UV_RUN) --group test pytest -vv -n $(E2E_WORKERS) -m e2e --run-e2e --run-network_bound tests/e2e
 
 .PHONY: tests
 tests: test test-e2e
