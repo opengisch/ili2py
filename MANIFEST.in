@@ -1,0 +1,4 @@
+# setuptools-scm puts every git tracked file into the sdist, keep test data and docs out (PyPI size limit)
+prune tests
+prune docs
+prune .github
