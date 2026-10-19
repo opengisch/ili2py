@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TRANSFER xmlns="http://www.interlis.ch/INTERLIS2.3">
+	<HEADERSECTION SENDER="ili2py, test cases of iox-ili Xtf23Reader" VERSION="2.3">
+		<MODELS>
+			<MODEL NAME="DataTest1" VERSION="2016-07-08" URI="mailto:ceis@localhost"></MODEL>
+		</MODELS>
+	</HEADERSECTION>
+	<DATASECTION>
+		<!-- ObjectOperationMode.xtf -->
+		<DataTest1.TopicA BID="bid1" KIND="FULL">
+			<DataTest1.TopicA.ClassA TID="oid1" OPERATION="INSERT"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid2" OPERATION="UPDATE"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid3" OPERATION="DELETE"></DataTest1.TopicA.ClassA>
+		</DataTest1.TopicA>
+		<DataTest1.TopicA BID="bid2" KIND="UPDATE" STARTSTATE="state1" ENDSTATE="state2">
+			<DataTest1.TopicA.ClassA TID="oid4" OPERATION="INSERT"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid5" OPERATION="UPDATE"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid6" OPERATION="DELETE"></DataTest1.TopicA.ClassA>
+		</DataTest1.TopicA>
+		<DataTest1.TopicA BID="bid3" KIND="INITIAL" ENDSTATE="state1">
+			<DataTest1.TopicA.ClassA TID="oid7" OPERATION="INSERT"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid8" OPERATION="UPDATE"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid9" OPERATION="DELETE"></DataTest1.TopicA.ClassA>
+		</DataTest1.TopicA>
+		<!-- ObjectConsistencyMode.xtf, object with source basket (BID) -->
+		<DataTest1.TopicA BID="bid4">
+			<DataTest1.TopicA.ClassA TID="oid11" CONSISTENCY="COMPLETE"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid12" CONSISTENCY="INCOMPLETE"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid13" CONSISTENCY="INCONSISTENT"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid14" CONSISTENCY="ADAPTED"></DataTest1.TopicA.ClassA>
+			<DataTest1.TopicA.ClassA TID="oid15" BID="bidX"></DataTest1.TopicA.ClassA>
+		</DataTest1.TopicA>
+		<!-- BasketWithConsistency.xtf -->
+		<DataTest1.TopicA BID="bidA" CONSISTENCY="COMPLETE"></DataTest1.TopicA>
+		<DataTest1.TopicA BID="bidB" CONSISTENCY="INCOMPLETE"></DataTest1.TopicA>
+		<DataTest1.TopicA BID="bidC" CONSISTENCY="INCONSISTENT"></DataTest1.TopicA>
+		<DataTest1.TopicA BID="bidD" CONSISTENCY="ADAPTED"></DataTest1.TopicA>
+		<!-- BasketWithTransferKind.xtf -->
+		<DataTest1.TopicA BID="bidE" KIND="FULL"></DataTest1.TopicA>
+		<DataTest1.TopicA BID="bidF" KIND="UPDATE" STARTSTATE="state2" ENDSTATE="state3"></DataTest1.TopicA>
+		<DataTest1.TopicA BID="bidG" KIND="INITIAL" ENDSTATE="state1"></DataTest1.TopicA>
+	</DATASECTION>
+</TRANSFER>
