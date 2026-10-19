@@ -110,6 +110,7 @@ markers = [
     "slow: Marks a slow test",
     "integration: Integration Tests",
     "network_bound: Require internet connection",
+    "e2e: End-to-end tests (IMD -> python classes -> XTF -> ilivalidator), require java and ilivalidator",
 ]
 testpaths = [
     "tests",
@@ -117,6 +118,7 @@ testpaths = [
 explicit-only = [
     "integration",
     "network_bound",
+    "e2e",
 ]
 "resource-path.directory-name-test-resources" = "data"
 
