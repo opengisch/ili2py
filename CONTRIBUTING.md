@@ -155,6 +155,33 @@ To run the tests with another python version (e.g. 3.13):
 uv run --isolated --python 3.13 --group test pytest
 ```
 
+### End-to-end tests
+
+The end-to-end tests (marker `e2e`) generate python classes from an IMD, read and write the XTF test data with them and check the written XTF with [ilivalidator](https://github.com/claeis/ilivalidator). They are not part of `make test`. Requirements:
+
+* a Java runtime (JRE), `java` has to be on the `PATH`
+* network access: ilivalidator is downloaded from downloads.interlis.ch and the models are looked up on http://models.interlis.ch
+
+To run them:
+
+```bash
+make test-e2e
+```
+
+ilivalidator is downloaded and unpacked to `build/ilivalidator-<version>` on the first run. The version and the number of parallel pytest workers can be overridden:
+
+```bash
+make test-e2e ILIVALIDATOR_VERSION=1.15.0 E2E_WORKERS=8
+```
+
+Without `ILIVALIDATOR_JAR` (set by `make test-e2e`) or `java` the tests are skipped.
+
+To run the unit tests and the end-to-end tests together:
+
+```bash
+make tests
+```
+
 
 ## Core Committer Guide
 
