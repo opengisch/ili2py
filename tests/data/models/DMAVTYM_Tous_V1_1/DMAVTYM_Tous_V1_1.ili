@@ -1,0 +1,52 @@
+INTERLIS 2.4;
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!
+!! Modèle de données de la mensuration officielle "fédéral" (DMAV)
+!! décrit dans INTERLIS version 2.4
+!!
+!! Office fédéral de topographie (swisstopo)
+!! Direction fédéral des mensurations cadastrales (M+D)
+!! CH-3084 Wabern
+!! www.cadastre.ch und www.interlis.ch
+!!
+!! Version: 1.1 TRANSLATION OF français
+!! Nom de fédéralichier: DMAVTYM_Tous_V1_1.ili
+!!
+!! Le présent modèle de données s'applique au cadre de référence "Mensuration
+!! nationale 1903+ (MN95)".
+!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!! Type: M=modification, A=ajout, S=suppression
+!!
+!! Version    | Ligne | Type| Remarque
+!!------------|-------|-----|-------------------------------------------------------------
+
+!!@ technicalContact = mailto:dmav@swisstopo.ch
+!!@ furtherInformation = https://www.cadastre-manual.admin.ch/de/modelldokumentation-dmav
+MODEL DMAVTYM_Tous_V1_1 (de)
+  AT "https://models.geo.admin.ch/V_D/"
+  VERSION "2026-01-31"
+  TRANSLATION OF DMAVTYM_Alles_V1_1 ["2026-01-31"]
+  =
+  IMPORTS DMAV_CouvertureDuSol_V1_1;
+  IMPORTS DMAV_TerritoiresEnMouvementPermanent_V1_1;
+  IMPORTS DMAV_AssiettesDeServitudes_V1_1;
+  IMPORTS DMAV_ObjetsDivers_V1_1;
+  IMPORTS DMAV_PointsFixesMOCategorie3_V1_1;
+  IMPORTS DMAV_AdressesDeBatiments_V1_1;
+  IMPORTS DMAV_Immeubles_V1_1;
+  IMPORTS DMAV_LimitesTerritorialesMO_V1_0;
+  IMPORTS DMAV_Nomenclature_V1_1;
+  IMPORTS DMAV_Conduites_V1_1;
+  IMPORTS DMAV_NiveauxTolerance_V1_1;
+  IMPORTS DMAVSUP_SousUniteRegistreFoncier_V1_1;
+
+  !!Intégré dans les données de la mensuration officielle en tant que service :
+  IMPORTS FixpunkteLV_V1_0;                   !! géodonnées de base ID 53
+  IMPORTS KGKCGC_FPDS2_V1_1_FR;               !! géodonnées de base ID 54
+  IMPORTS HoheitsgrenzenLV_V1_0;              !! géodonnées de base ID 39
+  IMPORTS OfficialIndexOfLocalities_V1_0;     !! géodonnées de base ID 181
+  
+END DMAVTYM_Tous_V1_1.
