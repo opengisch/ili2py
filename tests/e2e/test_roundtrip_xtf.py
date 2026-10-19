@@ -27,7 +27,6 @@ MAX_REPORTED_ERRORS = 20
 
 # known failures (triage 2026-10-19)
 BASKET_STATE = "generator: INTERLIS 2.3 basket attributes STARTSTATE/ENDSTATE are missing"
-HEADER_ALIAS = "generator: INTERLIS 2.3 HEADERSECTION/ALIAS is missing in xtf_opening"
 TRANSLATION = "generator: baskets of a translated model (TRANSLATION OF) are not known"
 INVALID_SOURCE = (
     "test data: source XTF fails ilivalidator 1.15.0 (198 x polygons overlay), geodienste "
@@ -68,16 +67,13 @@ def known_failure(imd_path: str, *reasons: str):
             "models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
             INVALID_SOURCE,
         ),
-        known_failure("models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd", HEADER_ALIAS),
+        "models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd",
         known_failure(
             "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", BASKET_STATE
         ),
         "models/Nutzungsplanung_V1_2/Nutzungsplanung_V1_2.imd",
         "models/OeREBKRMtrsfr_V2_0/OeREBKRMtrsfr_V2_0.imd",
-        known_failure(
-            "models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",
-            HEADER_ALIAS,
-        ),
+        "models/Planerischer_Gewaesserschutz_V1_2/PlanerischerGewaesserschutz_V1_2.imd",
         "models/Planungszonen_v1_1/Planungszonen_V1_1.imd",
         "models/Rebbaukataster_V2/LWB_Rebbaukataster_V2_0.imd",
         "models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd",

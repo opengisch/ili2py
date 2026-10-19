@@ -78,12 +78,103 @@ class ModelsType:
 
 
 @dataclass
+class TagEntry:
+    from_value: str | None = field(default=None, metadata={"name": "FROM", "type": "Attribute"})
+    to_value: str | None = field(default=None, metadata={"name": "TO", "type": "Attribute"})
+
+
+@dataclass
+class ValEntry:
+    tag: str | None = field(default=None, metadata={"name": "TAG", "type": "Attribute"})
+    attr: str | None = field(default=None, metadata={"name": "ATTR", "type": "Attribute"})
+    from_value: str | None = field(default=None, metadata={"name": "FROM", "type": "Attribute"})
+    to_value: str | None = field(default=None, metadata={"name": "TO", "type": "Attribute"})
+
+
+@dataclass
+class DelEntry:
+    tag: str | None = field(default=None, metadata={"name": "TAG", "type": "Attribute"})
+    attr: str | None = field(default=None, metadata={"name": "ATTR", "type": "Attribute"})
+
+
+@dataclass
+class EntriesType:
+    choice: list[TagEntry | ValEntry | DelEntry] = field(
+        default_factory=list,
+        metadata={
+            "type": "Elements",
+            "choices": (
+                {"name": "TAGENTRY", "type": TagEntry, "namespace": "{{ render_config['namespace_map']['ili'] }}"},
+                {"name": "VALENTRY", "type": ValEntry, "namespace": "{{ render_config['namespace_map']['ili'] }}"},
+                {"name": "DELENTRY", "type": DelEntry, "namespace": "{{ render_config['namespace_map']['ili'] }}"},
+            )
+        }
+    )
+    for_value: str | None = field(default=None, metadata={"name": "FOR", "type": "Attribute"})
+
+
+@dataclass
+class AliasType:
+    entries: list[EntriesType] = field(
+        default_factory=list,
+        metadata={
+            "name": "ENTRIES",
+            "type": "Element",
+            "namespace": "{{ render_config['namespace_map']['ili'] }}"
+        }
+    )
+
+
+@dataclass
+class OidSpace:
+    name: str | None = field(default=None, metadata={"name": "NAME", "type": "Attribute"})
+    oid_domain: str | None = field(default=None, metadata={"name": "OIDDOMAIN", "type": "Attribute"})
+
+
+@dataclass
+class OidSpacesType:
+    oid_spaces: list[OidSpace] = field(
+        default_factory=list,
+        metadata={
+            "name": "OIDSPACE",
+            "type": "Element",
+            "namespace": "{{ render_config['namespace_map']['ili'] }}"
+        }
+    )
+
+
+@dataclass
 class HeaderSection:
+    """The HEADERSECTION of INTERLIS 2.3, structure as in ili2c (XSDGenerator)."""
     class Meta:
         namespace = "{{ render_config['namespace_map']['ili'] }}"
     models: ModelsType = field(
         metadata={
             "name": "MODELS",
+            "type": "Element",
+            "namespace": "{{ render_config['namespace_map']['ili'] }}"
+        }
+    )
+    alias: AliasType | None = field(
+        default=None,
+        metadata={
+            "name": "ALIAS",
+            "type": "Element",
+            "namespace": "{{ render_config['namespace_map']['ili'] }}"
+        }
+    )
+    oid_spaces: OidSpacesType | None = field(
+        default=None,
+        metadata={
+            "name": "OIDSPACES",
+            "type": "Element",
+            "namespace": "{{ render_config['namespace_map']['ili'] }}"
+        }
+    )
+    comment: str | None = field(
+        default=None,
+        metadata={
+            "name": "COMMENT",
             "type": "Element",
             "namespace": "{{ render_config['namespace_map']['ili'] }}"
         }
