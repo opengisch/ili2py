@@ -56,7 +56,8 @@ jobs:
       # the version is only defined in the Makefile
       - name: Read ilivalidator version
         id: ilivalidator
-        run: echo "version=$(make -s --eval 'print-ilivalidator-version: ; @echo $(ILIVALIDATOR_VERSION)' print-ilivalidator-version)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(make -s --eval 'print-ilivalidator-version: ; @echo $(ILIVALIDATOR_VERSION)' print-ilivalidator-version)" >> "$GITHUB_OUTPUT"
 
       - name: Cache ilivalidator
         uses: actions/cache@v4
