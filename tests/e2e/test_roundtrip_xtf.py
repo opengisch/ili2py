@@ -26,10 +26,6 @@ MODEL_REPOSITORY = "http://models.interlis.ch"
 MAX_REPORTED_ERRORS = 20
 
 # known failures (triage 2026-10-19)
-IMPORTED_TOPIC = (
-    "generator: basket of a topic of an imported model (DMAV_Bodenbedeckung_V1_1) is read "
-    "in the INTERLIS namespace, its classes are unknown"
-)
 ROLE_REF = "generator: association role embedded in the class (<role REF=…/>) is missing"
 HEADER_ALIAS = "generator: INTERLIS 2.3 HEADERSECTION/ALIAS is missing in xtf_opening"
 TRANSLATION = "generator: baskets of a translated model (TRANSLATION OF) are not known"
@@ -51,7 +47,7 @@ def known_failure(imd_path: str, *reasons: str):
 @pytest.mark.parametrize(
     "imd_path",
     [
-        known_failure("models/DMAVTYM_Alles_V1_1/DMAVTYM_Alles_V1_1.imd", IMPORTED_TOPIC),
+        "models/DMAVTYM_Alles_V1_1/DMAVTYM_Alles_V1_1.imd",
         known_failure(
             "models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/ElektrischeAnlagenNennspannungUeber36kV_V1.imd",
             TRANSLATION,
