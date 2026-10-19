@@ -27,11 +27,6 @@ MAX_REPORTED_ERRORS = 20
 
 # known failures (triage 2026-10-19)
 BASKET_STATE = "generator: INTERLIS 2.3 basket attributes STARTSTATE/ENDSTATE are missing"
-TRANSLATION = "generator: baskets of a translated model (TRANSLATION OF) are not known"
-INVALID_SOURCE = (
-    "test data: source XTF fails ilivalidator 1.15.0 (198 x polygons overlay), geodienste "
-    "validated it with 1.11.13"
-)
 
 
 def known_failure(imd_path: str, *reasons: str):
@@ -46,10 +41,7 @@ def known_failure(imd_path: str, *reasons: str):
     "imd_path",
     [
         "models/DMAVTYM_Alles_V1_1/DMAVTYM_Alles_V1_1.imd",
-        known_failure(
-            "models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/ElektrischeAnlagenNennspannungUeber36kV_V1.imd",
-            TRANSLATION,
-        ),
+        "models/Elektrische_Anlagen_Nennspannung_36kV_V1_0/ElektrischeAnlagenNennspannungUeber36kV_V1.imd",
         "models/Fruchtfolgeflaechen_V1/Fruchtfolgeflaechen_V1.imd",
         "models/Gewaesserraum_V1_1/Gewaesserraum_V1_1.imd",
         "models/Grundwasservorkommen_V2_0/Grundwasservorkommen_V2_0.imd",
@@ -63,10 +55,7 @@ def known_failure(imd_path: str, *reasons: str):
         "models/LWB_Nutzungsflaechen_V2_0/LWB_Nutzungsflaechen_V2_0.imd",
         "models/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0/LWB_Perimeter_LandwirtschaftlicheNutzflaeche_Soemmerung_V2_0.imd",
         "models/LWB_Perimeter_Terrassenreben_V2_0/LWB_Perimeter_Terrassenreben_V2_0.imd",
-        known_failure(
-            "models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
-            INVALID_SOURCE,
-        ),
+        "models/Laermempfindlichkeitsstufen_V1_2/Laermempfindlichkeitsstufen_V1_2.imd",
         "models/Leitungskataster/SIA405_LKMap_2015_2_d-20180427.imd",
         known_failure(
             "models/Naturereigniskataster_V1_0/Naturereigniskataster_MGDM_V1.imd", BASKET_STATE
@@ -79,10 +68,6 @@ def known_failure(imd_path: str, *reasons: str):
         "models/Revitalisierung_Seeufer_V1_2/Revitalisierung_Seen_V1_2.imd",
         "models/Revitalisierungen_Fliessgewaesser_V1_2/Revitalisierung_Fliessgewaesser_V1_2.imd",
         "models/Richtplan_erneuerbare_Energien_V1_0/PlanDirecteurEnergiesRenouvelables_V1.imd",
-        known_failure(
-            "models/Richtplan_erneuerbare_Energien_V1_0/RichtplanungErneuerbareEnergien_V1.imd",
-            TRANSLATION,
-        ),
         "models/Rodungen_Rodungsersatz_V1_1/Rodungen_V1_1.imd",
         "models/SO_AFU_ABBAUSTELLEN_Publikation_20221103/SO_AFU_ABBAUSTELLEN_Publikation_20221103.imd",
         "models/SZ_Lebensraum_Fisch_V2/SZ_Lebensraum_Fisch_V2.imd",
