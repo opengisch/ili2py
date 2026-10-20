@@ -1,4 +1,5 @@
 from pathlib import Path
+import tempfile
 import xml.etree.ElementTree as ET
 import warnings
 
@@ -8,6 +9,7 @@ from xsdata.formats.dataclass.serializers.config import SerializerConfig
 
 from ili2py.readers.interlis_24.ilismeta16.xsdata import Imd16Reader
 from ili2py.readers.interlis_24.xtf.xsdata import Reader
+from ili2py.runtime.normalized import normalize_transfer
 
 
 GEOM_NS = "http://www.interlis.ch/geometry/1.0"
@@ -29,6 +31,35 @@ def test_reader_parses_dmav_xtf_without_converter_warnings(dmav_imd_path, dmav_x
     assert "DMAVTYM_Vermarkung_V1_0" in result
     sample = result["DMAVTYM_Vermarkung_V1_0"]
     assert getattr(sample, "datasection", None) is not None
+
+
+def test_reader_round_trip_preserves_normalized_records_for_dmav_model(dmav_imd_path, dmav_xtf_path):
+    model_name = "DMAV_HoheitsgrenzenAV_V1_0"
+
+    meta_model = Imd16Reader().read(str(dmav_imd_path))
+    reader = Reader(meta_model, fail_on_unknown_properties=False)
+    parsed_transfers = reader.read(str(dmav_xtf_path))
+
+    original_transfer = parsed_transfers[model_name]
+    original_records = normalize_transfer(model_name, original_transfer)
+    assert original_records
+
+    serializer = XmlSerializer(config=SerializerConfig(indent="  ", xml_declaration=True))
+    xml = serializer.render(original_transfer)
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".xtf", encoding="utf-8", delete=False) as tmp:
+        tmp.write(xml)
+        tmp_path = Path(tmp.name)
+
+    try:
+        round_trip_transfers = reader.read(str(tmp_path))
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    round_trip_transfer = round_trip_transfers[model_name]
+    round_trip_records = normalize_transfer(model_name, round_trip_transfer)
+
+    assert round_trip_records == original_records
 
 
 def test_reader_parses_dotted_topic_class_elements_for_bodenbedeckung_model(dmav_imd_path, dmav_xtf_path):
