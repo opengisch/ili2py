@@ -1,0 +1,417 @@
+from decimal import Decimal
+from dataclasses import fields, field, is_dataclass, make_dataclass
+from typing import Any, List, Optional
+
+from ili2py.interfaces.interlis.interlis_24.ilismeta16 import ImdTransfer
+from ili2py.interfaces.interlis.interlis_24.ilismeta16.model_data.model_data import (
+    ModelDataType,
+)
+
+
+class ModelDataGeneratorBase:
+    """Shared metadata navigation and field-spec extraction for XTF generators.
+
+    Subclasses provide version-specific transfer wrappers while this base class
+    centralizes traversal of IlisMeta16 model baskets/classes/attributes.
+    """
+
+    def _global_attr_by_tid(self, tid: str | None):
+        """Look up an AttrOrParam by tid across all loaded models' metadata.
+
+        Redefined/extended attributes (INTERLIS EXTENDS) keep a `Super` reference
+        to the attribute they redefine, which commonly lives in a different
+        model than the redefining attribute.
+        """
+        if not hasattr(self, "_global_attr_index"):
+            index = {}
+            for model_metadata in self._model_baskets():
+                for element in self._elements_of_type(model_metadata, "AttrOrParam"):
+                    element_tid = getattr(element, "tid", None)
+                    if element_tid:
+                        index[element_tid] = element
+            self._global_attr_index = index
+        return self._global_attr_index.get(tid)
+
+    def _namespace_for_model_name(self, model_name: str) -> str:
+        """Build the version-specific XML namespace URI for a model name.
+
+        Overridden per INTERLIS version, since the namespace URI scheme differs
+        between versions (e.g. INTERLIS 2.4 uses per-model `.../xtf/2.4/{model}`
+        URIs, while 2.3 does not).
+        """
+        raise NotImplementedError
+
+    def _field_origin_namespace(self, attr_or_role_item, default_namespace: str | None):
+        """Resolve the XML namespace an attribute or role is actually transferred under.
+
+        When a field redefines/extends an inherited attribute (e.g. widening an
+        enumeration), INTERLIS keeps the original XML element tag/namespace of the
+        model where it was first declared, not the redefining model. Walk the
+        `Super` chain to find that origin model. A field that is merely inherited
+        unchanged (no local redefinition, e.g. a Role pulled in from a base class
+        via `_ordered_field_elements`'s global fallback) has no `Super` of its own,
+        so its own tid already points at the correct origin model.
+        """
+        current = attr_or_role_item
+        visited: set[str] = set()
+        while True:
+            tid = getattr(current, "tid", None)
+            if not tid or tid in visited:
+                break
+            visited.add(tid)
+            super_ref = getattr(getattr(current, "super", None), "ref", None)
+            if not super_ref:
+                break
+            super_item = self._global_attr_by_tid(super_ref)
+            if super_item is None:
+                break
+            current = super_item
+        origin_tid = getattr(current, "tid", None)
+        if not origin_tid or "." not in origin_tid:
+            return default_namespace
+        origin_model_name = origin_tid.split(".", 1)[0]
+        try:
+            return self._namespace_for_model_name(origin_model_name)
+        except NotImplementedError:
+            return default_namespace
+
+    def _global_type_by_tid(self, tid: str | None, type_names: set[str]):
+        if not tid:
+            return None
+        for basket in self._model_baskets():
+            for element in self._basket_elements(basket):
+                if type(element).__name__ not in type_names:
+                    continue
+                if getattr(element, "tid", None) == tid:
+                    return element
+        return None
+
+    def _python_type_for_num_type(self, type_item):
+        numeric_bounds = [getattr(type_item, "min", None), getattr(type_item, "max", None)]
+        for bound in numeric_bounds:
+            if bound is None:
+                continue
+            bound_str = str(bound)
+            if any(token in bound_str.lower() for token in (".", "e")):
+                return Decimal
+        return int
+
+    def __init__(self, meta_model: ImdTransfer):
+        self.meta_model = meta_model
+
+    def _model_baskets(self):
+        return getattr(getattr(self.meta_model, "datasection", None), "ModelData", [])
+
+    def _basket_elements(self, basket):
+        return getattr(basket, "choice", [])
+
+    def _elements_of_type(self, basket, type_name: str):
+        return [element for element in self._basket_elements(basket) if type(element).__name__ == type_name]
+
+    def _model_element(self, basket):
+        for element in self._basket_elements(basket):
+            if type(element).__name__ == "Model":
+                return element
+        raise LookupError("No Model element found in basket.")
+
+    def _ref_value(self, value):
+        if value is None:
+            return None
+        ref = getattr(value, "ref", None)
+        if ref is not None:
+            return ref
+        nested = getattr(value, "attr_or_param_type", None)
+        if nested is not None:
+            return getattr(nested, "ref", None)
+        # xsdata-generated variants use field names like attr_or_param_type_2.
+        if is_dataclass(value):
+            for value_field in fields(value):
+                nested_value = getattr(value, value_field.name, None)
+                if nested_value is None:
+                    continue
+                nested_ref = getattr(nested_value, "ref", None)
+                if nested_ref is not None:
+                    return nested_ref
+        return None
+
+    def _topic_elements(self, basket, model_tid: str):
+        return [
+            element
+            for element in self._elements_of_type(basket, "SubModel")
+            if getattr(getattr(element, "element_in_package", None), "ref", None) == model_tid
+        ]
+
+    def _class_elements(self, basket, topic_tid: str):
+        """List the classes transferred in one topic's basket.
+
+        A topic that extends another topic (INTERLIS EXTENDS) shares a single
+        basket with its base topic: the XTF encodes both the extending topic's
+        own classes and the base topic's inherited-but-not-redefined classes
+        under one basket, tagged with the extending topic's namespace. Which
+        classes belong to a basket is authoritatively listed by `AllowedInBasket`
+        entries for the topic's `.BASKET` data unit -- this includes classes
+        declared in a different (base) model, so falls back to a global lookup
+        when a class isn't in this basket's own metadata. If no such listing
+        exists (e.g. the topic doesn't extend anything), fall back to classes
+        declared locally in this topic.
+        """
+        basket_tid = f"{topic_tid}.BASKET"
+        allowed_class_tids: list[str] = []
+        seen_tids: set[str] = set()
+        for entry in self._elements_of_type(basket, "AllowedInBasket"):
+            if getattr(getattr(entry, "of_data_unit", None), "ref", None) != basket_tid:
+                continue
+            class_tid = getattr(getattr(entry, "class_in_basket", None), "ref", None)
+            if class_tid and class_tid not in seen_tids:
+                seen_tids.add(class_tid)
+                allowed_class_tids.append(class_tid)
+
+        if allowed_class_tids:
+            local_classes = self._classes_by_tid(basket)
+            classes = []
+            for class_tid in allowed_class_tids:
+                class_item = local_classes.get(class_tid) or self._global_type_by_tid(
+                    class_tid, {"Class"}
+                )
+                if class_item is not None and getattr(class_item, "kind", None) == "Class":
+                    classes.append(class_item)
+            if classes:
+                return classes
+
+        return [
+            element
+            for element in self._elements_of_type(basket, "Class")
+            if getattr(getattr(element, "element_in_package", None), "ref", None) == topic_tid
+            and getattr(element, "kind", None) == "Class"
+        ]
+
+    def _attributes_for_class(self, basket, class_tid: str):
+        return [
+            element
+            for element in self._elements_of_type(basket, "AttrOrParam")
+            if getattr(getattr(element, "attr_parent", None), "ref", None) == class_tid
+        ]
+
+    def _types_by_tid(self, basket, type_name: str):
+        return {getattr(element, "tid", None): element for element in self._elements_of_type(basket, type_name)}
+
+    def _classes_by_tid(self, basket):
+        return {getattr(element, "tid", None): element for element in self._elements_of_type(basket, "Class")}
+
+    def _ordered_transfer_element_refs(self, basket, class_tid: str):
+        refs: list[tuple[int, str]] = []
+        for transfer_element in self._elements_of_type(basket, "TransferElement"):
+            if getattr(getattr(transfer_element, "transfer_class", None), "ref", None) != class_tid:
+                continue
+            transfer_target = getattr(transfer_element, "transfer_element", None)
+            ref = getattr(transfer_target, "ref", None)
+            order_pos = getattr(transfer_target, "order_pos", None)
+            try:
+                order = int(order_pos)
+            except (TypeError, ValueError):
+                order = len(refs) + 1
+            if ref:
+                refs.append((order, ref))
+        refs.sort(key=lambda item: item[0])
+        return [ref for _, ref in refs]
+
+    def _ordered_field_elements(self, basket, class_tid: str):
+        attr_by_tid = {
+            getattr(attr, "tid", None): attr
+            for attr in self._attributes_for_class(basket, class_tid)
+        }
+        role_by_tid = {
+            getattr(role, "tid", None): role
+            for role in self._elements_of_type(basket, "Role")
+        }
+        ordered_refs = self._ordered_transfer_element_refs(basket, class_tid)
+
+        ordered_elements = []
+        for ref in ordered_refs:
+            if ref in attr_by_tid:
+                ordered_elements.append(attr_by_tid[ref])
+                continue
+            if ref in role_by_tid:
+                ordered_elements.append(role_by_tid[ref])
+                continue
+            # Inherited attributes/roles that aren't redefined by this class are only
+            # declared on a base class, possibly in a different model. The local
+            # class's TransferElement still references them directly by tid, so fall
+            # back to a lookup across all loaded models.
+            inherited_attr = self._global_attr_by_tid(ref)
+            if inherited_attr is not None:
+                ordered_elements.append(inherited_attr)
+                continue
+            inherited_role = self._global_type_by_tid(ref, {"Role"})
+            if inherited_role is not None:
+                ordered_elements.append(inherited_role)
+
+        if not ordered_elements:
+            ordered_elements = list(attr_by_tid.values())
+        return ordered_elements
+
+    def _attribute_field_specs(self, basket, class_tid: str, default_namespace: str | None = None):
+        """Return normalized field specs for attributes/roles of one class.
+
+        The returned tuples drive concrete dataclass creation in version-specific
+        generators and encode scalar/ref/geometry/multivalue semantics. Each tuple's
+        last element is the XML namespace the field is actually transferred under
+        (which for redefined/extended attributes differs from `default_namespace`).
+        """
+        text_types = self._types_by_tid(basket, "TextType")
+        num_types = self._types_by_tid(basket, "NumType")
+        multi_value_types = self._types_by_tid(basket, "MultiValue")
+        coord_types = self._types_by_tid(basket, "CoordType")
+        line_types = self._types_by_tid(basket, "LineType")
+        ref_types = self._types_by_tid(basket, "ReferenceType")
+        enum_types = self._types_by_tid(basket, "EnumType")
+        role_types = self._types_by_tid(basket, "Role")
+        object_types = self._types_by_tid(basket, "ObjectType")
+        class_ref_types = self._types_by_tid(basket, "ClassRefType")
+        formatted_types = self._types_by_tid(basket, "FormattedType")
+        boolean_types = self._types_by_tid(basket, "BooleanType")
+        blackbox_types = self._types_by_tid(basket, "BlackboxType")
+        field_specs = []
+        for class_item in self._ordered_field_elements(basket, class_tid):
+            item_type_name = type(class_item).__name__
+            if item_type_name == "Role":
+                role_name = getattr(class_item, "name", None)
+                if role_name:
+                    role_namespace = self._field_origin_namespace(class_item, default_namespace)
+                    field_specs.append(
+                        ("ref", role_name.lower(), role_name, None, False, class_item, role_namespace)
+                    )
+                continue
+            if item_type_name != "AttrOrParam":
+                continue
+
+            attr_or_param_item = class_item
+            namespace = self._field_origin_namespace(attr_or_param_item, default_namespace)
+            type_ref = self._ref_value(getattr(attr_or_param_item, "type_value", None))
+            type_item = (
+                text_types.get(type_ref)
+                or num_types.get(type_ref)
+                or multi_value_types.get(type_ref)
+                or coord_types.get(type_ref)
+                or line_types.get(type_ref)
+                or ref_types.get(type_ref)
+                or enum_types.get(type_ref)
+                or role_types.get(type_ref)
+                or object_types.get(type_ref)
+                or class_ref_types.get(type_ref)
+                or formatted_types.get(type_ref)
+                or boolean_types.get(type_ref)
+                or blackbox_types.get(type_ref)
+            )
+            if type_item is None:
+                type_item = self._global_type_by_tid(
+                    type_ref,
+                    {
+                        "TextType",
+                        "NumType",
+                        "MultiValue",
+                        "CoordType",
+                        "LineType",
+                        "ReferenceType",
+                        "EnumType",
+                        "Role",
+                        "ObjectType",
+                        "ClassRefType",
+                        "FormattedType",
+                        "BooleanType",
+                        "BlackboxType",
+                    },
+                )
+            if type_item is None:
+                continue
+            mandatory = bool(getattr(type_item, "mandatory", False))
+            attr_name = getattr(attr_or_param_item, "name", "").lower()
+            xml_name = getattr(attr_or_param_item, "name", None)
+            if not attr_name or not xml_name:
+                continue
+            type_name = type(type_item).__name__
+            if type_name == "TextType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
+                continue
+            if type_name == "NumType":
+                python_type: Any = self._python_type_for_num_type(type_item)
+                field_specs.append(("scalar", attr_name, xml_name, python_type, mandatory, type_item, namespace))
+                continue
+            if type_name == "MultiValue":
+                field_specs.append(("multivalue", attr_name, xml_name, None, mandatory, type_item, namespace))
+                continue
+            if type_name in {"CoordType", "LineType"}:
+                field_specs.append(("geometry", attr_name, xml_name, None, mandatory, type_item, namespace))
+                continue
+            if type_name == "EnumType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
+                continue
+            if type_name == "FormattedType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
+                continue
+            if type_name == "BooleanType":
+                field_specs.append(("scalar", attr_name, xml_name, bool, mandatory, type_item, namespace))
+                continue
+            if type_name == "BlackboxType":
+                field_specs.append(("scalar", attr_name, xml_name, str, mandatory, type_item, namespace))
+                continue
+            if type_name in {"ReferenceType", "Role", "ObjectType", "ClassRefType"}:
+                field_specs.append(("ref", attr_name, xml_name, None, mandatory, type_item, namespace))
+        return field_specs
+
+    def find_model_by_name(self, model_name: str) -> ModelDataType:
+        """Resolve one model basket by INTERLIS model name."""
+        for model_data in self._model_baskets():
+            for element in self._basket_elements(model_data):
+                if type(element).__name__ != "Model":
+                    continue
+                if model_name == getattr(element, "name", None):
+                    return model_data
+        raise LookupError(f"No model with name {model_name} could be found.")
+
+    def _record_fields(
+        self,
+        basket: ModelDataType,
+        class_tid: str,
+        *,
+        tid_name: str,
+        tid_namespace: str | None,
+        xml_namespace: str | None,
+        ref_python_type: Any | None = None,
+        geometry_python_type: Any | None = None,
+    ):
+        """Build dataclass field tuples for one record class.
+
+        Fields are ordered with required elements first to satisfy dataclass
+        constructor rules while preserving metadata required by xsdata.
+        """
+        tid_metadata = {"name": tid_name, "type": "Attribute"}
+        if tid_namespace is not None:
+            tid_metadata["namespace"] = tid_namespace
+        attr_or_param_fields: list[tuple[str, Any, Any]] = [
+            ("tid", Optional[str], field(default=None, metadata=tid_metadata))
+        ]
+        for field_kind, attr_name, xml_name, python_type, mandatory, _type_item, field_namespace in (
+            self._attribute_field_specs(basket, class_tid, xml_namespace)
+        ):
+            if field_kind not in {"scalar", "ref", "geometry"}:
+                continue
+            if field_kind == "ref":
+                if ref_python_type is None:
+                    continue
+                python_type = ref_python_type
+            if field_kind == "geometry":
+                if geometry_python_type is None:
+                    continue
+                python_type = geometry_python_type
+            metadata = {"name": xml_name, "type": "Element", "required": mandatory}
+            resolved_namespace = field_namespace if field_namespace is not None else xml_namespace
+            if resolved_namespace is not None:
+                metadata["namespace"] = resolved_namespace
+            field_def = field(metadata=metadata) if mandatory else field(default=None, metadata=metadata)
+            field_tuple = (attr_name, python_type if mandatory else Optional[python_type], field_def)
+            if mandatory:
+                attr_or_param_fields.insert(0, field_tuple)
+            else:
+                attr_or_param_fields.append(field_tuple)
+        return attr_or_param_fields
