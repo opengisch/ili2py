@@ -231,6 +231,10 @@ class Attribute(Base):
     namespace_package: str | None = field(default=None)
     kind: str | None = field(default=None)
     is_oid_type: bool = field(default=False)
+    # The tid of the type in the IMD (e.g. 'INTERLIS.HALIGNMENT'), which `types` names the
+    # Python way instead: a type of another package loses its dots ('INTERLISHALIGNMENT').
+    # None for a role, which has no type.
+    type_identifier: str | None = field(default=None)
 
     def default_tag(self) -> str:
         """
@@ -545,6 +549,7 @@ class Attribute(Base):
                         namespace_package=model_name,
                         kind=referenced_type.name,
                         translations={},
+                        type_identifier=multi_value_base_type.tid,
                     )
                 ],
                 abstract=False,
@@ -653,6 +658,7 @@ class Attribute(Base):
             ),
             is_oid_type=index.is_oid_type(mandatory(referenced_type.tid)),
             translations=index.model_translations.get(tid, {}),
+            type_identifier=mandatory(referenced_type.tid),
         )
 
     @staticmethod
@@ -844,6 +850,7 @@ class Class(Base):
                 line_type=None,
                 type_related_type_class=None,
                 translations={},
+                type_identifier=oid_type_object.tid,
             )
         point_like_attributes = []
         line_like_attributes = []
@@ -1397,6 +1404,7 @@ class CoordType(Base):
                         type_restrictions=CoordAttribute.construct_type_restrictions(imd_axis),
                         meta_attributes=meta_attributes,
                         translations=index.model_translations.get(imd_axis.tid, {}),
+                        type_identifier=imd_axis.tid,
                     )
                 )
         meta_attributes = cls.assemble_meta_attributes(index, tid)
@@ -1427,8 +1435,10 @@ class LineType(Base):
         kind = mandatory(imd_line_type.kind)
         attribute_doc = []
         meta_attributes = []
+        type_identifier = None
         if imd_line_type.coord_type:
             coord_type = index.index[imd_line_type.coord_type.ref]
+            type_identifier = coord_type.tid
             attribute_doc = cls.doc_string(coord_type.documentation)
             if imd_line_type.element_in_package:
                 if imd_line_type.element_in_package.ref == coord_type.element_in_package.ref:
@@ -1450,6 +1460,7 @@ class LineType(Base):
             types=[type_name],
             meta_attributes=meta_attributes,
             translations={},
+            type_identifier=type_identifier,
         )
         if kind not in ["Polyline", "DirectedPolyline", "Surface", "Area"]:
             logging.debug(f"LineType kind not recognized {kind}, {imd_line_type}")
