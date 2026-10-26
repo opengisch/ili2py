@@ -11,8 +11,8 @@ class UniqueConstraintTypeUniqueDef:
     class Meta:
         global_type = False
 
-    path_or_insp_factor: Optional[PathOrInspFactor] = field(
-        default=None,
+    path_or_insp_factor: list[PathOrInspFactor] = field(
+        default_factory=list,
         metadata={
             "name": "PathOrInspFactor",
             "type": "Element",
