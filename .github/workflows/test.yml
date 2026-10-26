@@ -18,8 +18,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # minimum from requires-python and the version used for the binaries (build.yml)
-        python-version: ['3.12', '3.13']
+        # minimum from requires-python, the version used for the binaries (build.yml) and the latest
+        python-version: ['3.12', '3.13', '3.14']
     steps:
       - name: Checkout
         uses: actions/checkout@v4

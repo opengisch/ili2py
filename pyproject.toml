@@ -42,6 +42,7 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Software Distribution",
@@ -51,7 +52,7 @@ classifiers = [
 ### Dependency Constraints, aka Requirements ###
 dependencies = [
     "click==8.1.8",
-    "xsdata[cli,lxml,soap]==25.7",
+    "xsdata[cli,lxml,soap]==26.10",
     # formatting of the generated python code (writers/py/render.py)
     "autoflake==2.4.0",
     "black==25.1.0",
