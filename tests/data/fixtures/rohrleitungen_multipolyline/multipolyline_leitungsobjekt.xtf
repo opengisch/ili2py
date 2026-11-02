@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ili:transfer xmlns:ili="http://www.interlis.ch/xtf/2.4/INTERLIS" xmlns:geom="http://www.interlis.ch/geometry/1.0" xmlns:DMAV_Rohrleitungen_V1_1="http://www.interlis.ch/xtf/2.4/DMAV_Rohrleitungen_V1_1" xmlns:DMAVTYM_Grafik_V1_0="http://www.interlis.ch/xtf/2.4/DMAVTYM_Grafik_V1_0">
+  <ili:headersection>
+    <ili:models>
+      <ili:model>DMAV_Rohrleitungen_V1_1</ili:model>
+    </ili:models>
+    <ili:sender>ili2py-test</ili:sender>
+  </ili:headersection>
+  <ili:datasection>
+    <DMAV_Rohrleitungen_V1_1:Rohrleitungen ili:bid="59a240f8-8e77-4206-9c2c-e1ad3212a482">
+      <DMAV_Rohrleitungen_V1_1:Leitungsobjekt ili:tid="50946bf2-0e62-45d0-8931-602fa9d1a0f9">
+        <DMAV_Rohrleitungen_V1_1:Betreiber>GVM</DMAV_Rohrleitungen_V1_1:Betreiber>
+        <DMAV_Rohrleitungen_V1_1:Qualitaetsstandard>AV93</DMAV_Rohrleitungen_V1_1:Qualitaetsstandard>
+        <DMAV_Rohrleitungen_V1_1:Medium>Oel</DMAV_Rohrleitungen_V1_1:Medium>
+        <DMAV_Rohrleitungen_V1_1:Objektstatus>real</DMAV_Rohrleitungen_V1_1:Objektstatus>
+        <DMAV_Rohrleitungen_V1_1:Flaechenelement>
+          <DMAV_Rohrleitungen_V1_1:Flaechenelement>
+            <DMAV_Rohrleitungen_V1_1:Geometrie>
+              <geom:surface>
+                <geom:exterior>
+                  <geom:polyline>
+                    <geom:coord><geom:c1>2587827.463</geom:c1><geom:c2>1225979.417</geom:c2></geom:coord>
+                    <geom:coord><geom:c1>2587862.491</geom:c1><geom:c2>1225995.46</geom:c2></geom:coord>
+                    <geom:coord><geom:c1>2587866.757</geom:c1><geom:c2>1225980.235</geom:c2></geom:coord>
+                    <geom:coord><geom:c1>2587875.762</geom:c1><geom:c2>1225956.124</geom:c2></geom:coord>
+                    <geom:coord><geom:c1>2587833.944</geom:c1><geom:c2>1225955.199</geom:c2></geom:coord>
+                    <geom:coord><geom:c1>2587827.463</geom:c1><geom:c2>1225979.417</geom:c2></geom:coord>
+                  </geom:polyline>
+                </geom:exterior>
+              </geom:surface>
+            </DMAV_Rohrleitungen_V1_1:Geometrie>
+            <DMAV_Rohrleitungen_V1_1:Sichtbar>
+              <geom:multipolyline>
+                <geom:polyline>
+                  <geom:coord><geom:c1>2587827.463</geom:c1><geom:c2>1225979.417</geom:c2></geom:coord>
+                  <geom:coord><geom:c1>2587862.491</geom:c1><geom:c2>1225995.46</geom:c2></geom:coord>
+                </geom:polyline>
+                <geom:polyline>
+                  <geom:coord><geom:c1>2587866.757</geom:c1><geom:c2>1225980.235</geom:c2></geom:coord>
+                  <geom:coord><geom:c1>2587875.762</geom:c1><geom:c2>1225956.124</geom:c2></geom:coord>
+                  <geom:coord><geom:c1>2587833.944</geom:c1><geom:c2>1225955.199</geom:c2></geom:coord>
+                  <geom:coord><geom:c1>2587827.463</geom:c1><geom:c2>1225979.417</geom:c2></geom:coord>
+                </geom:polyline>
+              </geom:multipolyline>
+            </DMAV_Rohrleitungen_V1_1:Sichtbar>
+          </DMAV_Rohrleitungen_V1_1:Flaechenelement>
+        </DMAV_Rohrleitungen_V1_1:Flaechenelement>
+        <DMAV_Rohrleitungen_V1_1:Textposition>
+          <DMAVTYM_Grafik_V1_0:Textposition>
+            <DMAVTYM_Grafik_V1_0:Position>
+              <geom:coord><geom:c1>2587848.449</geom:c1><geom:c2>1225970.316</geom:c2></geom:coord>
+            </DMAVTYM_Grafik_V1_0:Position>
+            <DMAVTYM_Grafik_V1_0:Orientierung>100.0</DMAVTYM_Grafik_V1_0:Orientierung>
+            <DMAVTYM_Grafik_V1_0:HReferenzpunkt>Center</DMAVTYM_Grafik_V1_0:HReferenzpunkt>
+            <DMAVTYM_Grafik_V1_0:VReferenzpunkt>Half</DMAVTYM_Grafik_V1_0:VReferenzpunkt>
+          </DMAVTYM_Grafik_V1_0:Textposition>
+        </DMAV_Rohrleitungen_V1_1:Textposition>
+        <DMAV_Rohrleitungen_V1_1:Entstehung ili:ref="dfb7ac6b-1016-44f9-95ce-9faf410658ea"></DMAV_Rohrleitungen_V1_1:Entstehung>
+      </DMAV_Rohrleitungen_V1_1:Leitungsobjekt>
+    </DMAV_Rohrleitungen_V1_1:Rohrleitungen>
+  </ili:datasection>
+</ili:transfer>

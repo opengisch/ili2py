@@ -23,3 +23,11 @@ be parsed from IMD16 files in the tests.
 The generated class attribute for [TranslationTypeTranslations.metranslation]
 (ilismeta16_2022_10_10/translation_type_translations.py#L14)
 was optional single attribute instead of list. This was fixed manually.
+
+xsdata also took the `LIST OF` attributes for single elements, wherever the IMD it was generated
+from has one element at most in them: a path (`PathEls`) kept its first element only, a unique
+constraint (`UniqueDef`) its first attribute, a function call (`Arguments`) its first argument.
+Their elements were corrected manually to lists, as the choice above, in the classes of
+`Documentation`, `Derivates` (of `AttrOrParam` and of `Role`), `FormationParameter`, `PathEls`,
+`Cases`, `ObjectClasses`, `Arguments`, `UniqueDef`, `Assignments`, `Rule` and `TranslatedDoc`. A
+test checks that an IMD keeps all their elements once parsed.

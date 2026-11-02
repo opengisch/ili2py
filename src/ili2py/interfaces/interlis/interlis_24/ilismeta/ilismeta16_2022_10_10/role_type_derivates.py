@@ -25,7 +25,7 @@ class RoleTypeDerivates:
     class Meta:
         global_type = False
 
-    choice: Optional[
+    choice: list[
         Union[
             UnitFunction,
             UnitRef,
@@ -42,7 +42,7 @@ class RoleTypeDerivates:
             Expression,
         ]
     ] = field(
-        default=None,
+        default_factory=list,
         metadata={
             "type": "Elements",
             "choices": (
