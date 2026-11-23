@@ -11,8 +11,8 @@ class MetaElementTypeDocumentation:
     class Meta:
         global_type = False
 
-    doc_text: Optional[DocText] = field(
-        default=None,
+    doc_text: list[DocText] = field(
+        default_factory=list,
         metadata={
             "name": "DocText",
             "type": "Element",

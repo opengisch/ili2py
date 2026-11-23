@@ -11,8 +11,8 @@ class CondSignParamAssignmentTypeAssignments:
     class Meta:
         global_type = False
 
-    sign_param_assignment: Optional[SignParamAssignment] = field(
-        default=None,
+    sign_param_assignment: list[SignParamAssignment] = field(
+        default_factory=list,
         metadata={
             "name": "SignParamAssignment",
             "type": "Element",
